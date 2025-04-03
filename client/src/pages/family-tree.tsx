@@ -402,12 +402,12 @@ const FamilyTreePage = () => {
                           </Avatar>
                           <div>
                             <p className="text-sm font-medium">{otherMember.role}</p>
-                            <p className="text-xs text-muted-foreground capitalize">
-                              {direction === "to" ? "Connected to" : "Connected from"} 
+                            <div className="text-xs text-muted-foreground capitalize">
+                              <span>{direction === "to" ? "Connected to" : "Connected from"}</span> 
                               <Badge variant="outline" className="ml-2 capitalize">
                                 {relationship.type || otherMember.relationship}
                               </Badge>
-                            </p>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
