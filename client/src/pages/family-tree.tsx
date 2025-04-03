@@ -48,10 +48,7 @@ const FamilyTreePage = () => {
   // Create mutation for adding a new family member
   const addMemberMutation = useMutation({
     mutationFn: async (newMember: AddMemberFormValues) => {
-      return apiRequest("/api/family-members", {
-        method: "POST",
-        body: JSON.stringify(newMember),
-      });
+      return apiRequest("POST", "/api/family-members", newMember);
     },
     onSuccess: () => {
       toast({
