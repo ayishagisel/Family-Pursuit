@@ -54,88 +54,88 @@ const DocumentsPage = () => {
       </header>
       
       <div className="bg-white dark:bg-neutral-100 rounded-xl shadow-md overflow-hidden mb-6">
-        <div className="p-4 border-b border-neutral-200">
-          <Tabs 
-            defaultValue="all" 
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
+        <Tabs 
+          defaultValue="all" 
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
+          <div className="p-4 border-b border-neutral-200">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="all">All Documents</TabsTrigger>
               <TabsTrigger value="recent">Recently Added</TabsTrigger>
               <TabsTrigger value="secure">Secure Documents</TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
-        
-        <div className="p-4">
-          <TabsContent value="all" className="mt-0">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="text-neutral-500">Loading documents...</div>
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="text-center py-12 text-neutral-500">
-                No documents found. Click "Upload Document" to add one.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {documents.map((document) => (
-                  <DocumentItem 
-                    key={document.id} 
-                    document={document} 
-                    onDownload={!document.isSecure ? handleDownload : undefined}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
+          </div>
           
-          <TabsContent value="recent" className="mt-0">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="text-neutral-500">Loading documents...</div>
-              </div>
-            ) : regularDocs.length === 0 ? (
-              <div className="text-center py-12 text-neutral-500">
-                No regular documents found.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {/* Show only the 5 most recent documents */}
-                {[...regularDocs]
-                  .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
-                  .slice(0, 5)
-                  .map((document) => (
+          <div className="p-4">
+            <TabsContent value="all" className="mt-0">
+              {isLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="text-neutral-500">Loading documents...</div>
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500">
+                  No documents found. Click "Upload Document" to add one.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((document) => (
                     <DocumentItem 
                       key={document.id} 
                       document={document} 
-                      onDownload={handleDownload}
+                      onDownload={!document.isSecure ? handleDownload : undefined}
                     />
                   ))}
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="secure" className="mt-0">
-            {isSecureLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="text-neutral-500">Loading secure documents...</div>
-              </div>
-            ) : secureDocuments.length === 0 ? (
-              <div className="text-center py-12 text-neutral-500">
-                No secure documents found.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {secureDocuments.map((document) => (
-                  <DocumentItem key={document.id} document={document} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </div>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="recent" className="mt-0">
+              {isLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="text-neutral-500">Loading documents...</div>
+                </div>
+              ) : regularDocs.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500">
+                  No regular documents found.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Show only the 5 most recent documents */}
+                  {[...regularDocs]
+                    .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+                    .slice(0, 5)
+                    .map((document) => (
+                      <DocumentItem 
+                        key={document.id} 
+                        document={document} 
+                        onDownload={handleDownload}
+                      />
+                    ))}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="secure" className="mt-0">
+              {isSecureLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="text-neutral-500">Loading secure documents...</div>
+                </div>
+              ) : secureDocuments.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500">
+                  No secure documents found.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {secureDocuments.map((document) => (
+                    <DocumentItem key={document.id} document={document} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

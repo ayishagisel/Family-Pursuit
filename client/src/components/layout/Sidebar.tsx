@@ -39,39 +39,29 @@ const Sidebar = () => {
         <div className="space-y-4">
           <div className="font-medium text-sm uppercase text-accent/80 mb-2">MAIN</div>
           
-          <Link href="/">
-            <a className={`flex items-center p-2 rounded-lg ${isActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
-              <i className="fas fa-sitemap w-6"></i>
-              <span>Family Tree</span>
-            </a>
+          <Link href="/" className={`flex items-center p-2 rounded-lg ${isActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+            <i className="fas fa-sitemap w-6"></i>
+            <span>Family Tree</span>
           </Link>
           
-          <Link href="/events">
-            <a className={`flex items-center p-2 rounded-lg ${isActive('/events') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
-              <i className="fas fa-calendar-alt w-6"></i>
-              <span>Events</span>
-            </a>
+          <Link href="/events" className={`flex items-center p-2 rounded-lg ${isActive('/events') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+            <i className="fas fa-calendar-alt w-6"></i>
+            <span>Events</span>
           </Link>
           
-          <Link href="/documents">
-            <a className={`flex items-center p-2 rounded-lg ${isActive('/documents') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
-              <i className="fas fa-file-alt w-6"></i>
-              <span>Documents</span>
-            </a>
+          <Link href="/documents" className={`flex items-center p-2 rounded-lg ${isActive('/documents') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+            <i className="fas fa-file-alt w-6"></i>
+            <span>Documents</span>
           </Link>
           
-          <Link href="/help-needed">
-            <a className={`flex items-center p-2 rounded-lg ${isActive('/help-needed') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
-              <i className="fas fa-hands-helping w-6"></i>
-              <span>Help Needed</span>
-            </a>
+          <Link href="/help-needed" className={`flex items-center p-2 rounded-lg ${isActive('/help-needed') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+            <i className="fas fa-hands-helping w-6"></i>
+            <span>Help Needed</span>
           </Link>
           
-          <Link href="/messages">
-            <a className={`flex items-center p-2 rounded-lg ${isActive('/messages') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
-              <i className="fas fa-comments w-6"></i>
-              <span>Messages</span>
-            </a>
+          <Link href="/messages" className={`flex items-center p-2 rounded-lg ${isActive('/messages') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+            <i className="fas fa-comments w-6"></i>
+            <span>Messages</span>
           </Link>
         </div>
         
