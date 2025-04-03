@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -7,11 +7,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
 import { FamilyMember, insertFamilyMemberSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAIValidation } from "@/hooks/useAIValidation";
+import { Loader2, AlertTriangle, Check } from "lucide-react";
 import { z } from "zod";
 
 // Extended zod schema with validation
@@ -26,8 +29,10 @@ const FamilyTreePage = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'warning' | 'error'>('idle');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { validateFamilyMemberData, isValidating, validationResult } = useAIValidation();
   
   // Get family members for the legend
   const { data: familyMembers = [] } = useQuery({
@@ -99,8 +104,59 @@ const FamilyTreePage = () => {
     setIsAddMemberDialogOpen(true);
   };
 
-  const onSubmit = (values: AddMemberFormValues) => {
-    addMemberMutation.mutate(values);
+  // Effect to reset validation status when dialog closes
+  useEffect(() => {
+    if (!isAddMemberDialogOpen) {
+      setValidationStatus('idle');
+    }
+  }, [isAddMemberDialogOpen]);
+
+  const onSubmit = async (values: AddMemberFormValues) => {
+    // Set validating status
+    setValidationStatus('validating');
+    
+    try {
+      // AI validation before submitting
+      const result = await validateFamilyMemberData({
+        name: values.name,
+        role: values.role,
+        relationship: values.relationship
+      });
+      
+      // Handle validation result
+      if (!result.isValid && result.issues.length > 0) {
+        // Set status based on issues
+        setValidationStatus('warning');
+        
+        // Show warning toast with AI suggestions
+        toast({
+          title: "AI Validation Warning",
+          description: "Some issues were found with the family member data. Check the warnings for details.",
+          variant: "warning",
+        });
+        
+        // If AI provided suggestions, apply them to form
+        if (result.suggestions) {
+          const updatedValues = { ...values };
+          if (result.suggestions.name) form.setValue('name', result.suggestions.name);
+          if (result.suggestions.role) form.setValue('role', result.suggestions.role);
+          if (result.suggestions.relationship) form.setValue('relationship', result.suggestions.relationship as "biological" | "adoptive" | "step");
+        }
+        
+        // Return early without submitting if validation failed
+        return;
+      }
+      
+      // If validation passed, set success status and submit
+      setValidationStatus('success');
+      addMemberMutation.mutate(values);
+    } catch (error) {
+      console.error("Error during form validation:", error);
+      setValidationStatus('error');
+      
+      // Continue with submission even if validation fails to avoid blocking users
+      addMemberMutation.mutate(values);
+    }
   };
 
   return (
@@ -286,6 +342,47 @@ const FamilyTreePage = () => {
                 )}
               />
 
+              {/* AI Validation Alert */}
+              {validationStatus === 'warning' && validationResult && validationResult.issues.length > 0 && (
+                <Alert variant="warning" className="mt-2 mb-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>AI Validation Warning</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-5 mt-2 text-sm">
+                      {validationResult.issues.map((issue, index) => (
+                        <li key={index}>{issue}</li>
+                      ))}
+                    </ul>
+                    {validationResult.suggestions && (
+                      <div className="mt-2 text-sm">
+                        <p className="font-medium">Suggestions:</p>
+                        <ul className="list-disc pl-5">
+                          {validationResult.suggestions.name && (
+                            <li>Name: {validationResult.suggestions.name}</li>
+                          )}
+                          {validationResult.suggestions.role && (
+                            <li>Role: {validationResult.suggestions.role}</li>
+                          )}
+                          {validationResult.suggestions.relationship && (
+                            <li>Relationship: {validationResult.suggestions.relationship}</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {validationStatus === 'success' && (
+                <Alert variant="default" className="mt-2 mb-2 bg-green-50 text-green-800 border-green-200">
+                  <Check className="h-4 w-4" />
+                  <AlertTitle>AI Validation Passed</AlertTitle>
+                  <AlertDescription>
+                    The family member data looks valid and consistent.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <DialogFooter>
                 <Button 
                   type="button" 
@@ -296,12 +393,17 @@ const FamilyTreePage = () => {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={addMemberMutation.isPending}
+                  disabled={addMemberMutation.isPending || isValidating}
                 >
                   {addMemberMutation.isPending ? (
                     <>
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Adding...
+                    </>
+                  ) : isValidating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Validating...
                     </>
                   ) : (
                     "Add Member"

@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -12,8 +12,33 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { format } from "date-fns";
+import { validateFamilyMemberData } from "./services/aiService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // AI Validation API
+  app.post("/api/validate/family-member", async (req: Request, res: Response) => {
+    try {
+      const { name, role, relationship } = req.body;
+      
+      if (!name || !role || !relationship) {
+        return res.status(400).json({ 
+          message: "Missing required fields", 
+          fields: { name, role, relationship }
+        });
+      }
+      
+      const validationResult = await validateFamilyMemberData({ name, role, relationship });
+      res.json(validationResult);
+    } catch (error) {
+      console.error("Error validating family member data:", error);
+      res.status(500).json({ 
+        message: "Failed to validate family member data",
+        isValid: true, // Default to true in case of error to not block the form
+        issues: ["AI validation service unavailable"]
+      });
+    }
+  });
+
   // Family Members API
   app.get("/api/family-members", async (req: Request, res: Response) => {
     try {
