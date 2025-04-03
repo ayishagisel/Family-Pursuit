@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import HelpRequestCard from "@/components/help/HelpRequestCard";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 const HelpNeededPage = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isAddHelpOpen, setIsAddHelpOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    dateNeeded: "",
+    timeNeeded: ""
+  });
   
   // Fetch help requests
   const { data: helpRequests = [], isLoading } = useQuery({
@@ -25,6 +36,107 @@ const HelpNeededPage = () => {
   
   // Get completed help requests
   const completedRequests = helpRequests.filter(request => request.status === "completed");
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setFormData({
+      ...formData,
+      [id === 'date-needed' ? 'dateNeeded' : id === 'time-needed' ? 'timeNeeded' : id]: value
+    });
+  };
+
+  // Create help request mutation
+  const createHelpRequestMutation = useMutation({
+    mutationFn: async (helpRequestData: any) => {
+      const response = await apiRequest("POST", "/api/help-requests", helpRequestData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create help request");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      // Reset form data
+      setFormData({
+        title: "",
+        description: "",
+        dateNeeded: "",
+        timeNeeded: ""
+      });
+      
+      // Close dialog
+      setIsAddHelpOpen(false);
+      
+      // Show success toast
+      toast({
+        title: "Success!",
+        description: "Your help request has been created.",
+      });
+      
+      // Refresh help requests list
+      queryClient.invalidateQueries({ queryKey: ["/api/help-requests"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
+    }
+  });
+
+  // Handle form submission
+  const handleSubmit = () => {
+    // Validate form
+    if (!formData.title) {
+      toast({
+        title: "Error",
+        description: "Please provide a title for your request",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.description) {
+      toast({
+        title: "Error",
+        description: "Please provide a description for your request",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.dateNeeded) {
+      toast({
+        title: "Error",
+        description: "Please select a date when help is needed",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Set loading state
+    setIsSubmitting(true);
+    
+    // Prepare date with time if provided
+    let dateNeeded = new Date(formData.dateNeeded);
+    if (formData.timeNeeded) {
+      const [hours, minutes] = formData.timeNeeded.split(':');
+      dateNeeded.setHours(parseInt(hours), parseInt(minutes));
+    }
+
+    // Submit help request
+    createHelpRequestMutation.mutate({
+      title: formData.title,
+      description: formData.description,
+      dateNeeded: dateNeeded.toISOString(),
+      requestedBy: 7 // Current user ID - would be dynamic in a real app
+    });
+  };
 
   return (
     <>
@@ -188,7 +300,13 @@ const HelpNeededPage = () => {
               <Label htmlFor="title" className="text-right">
                 Title
               </Label>
-              <Input id="title" placeholder="Help request title" className="col-span-3" />
+              <Input 
+                id="title" 
+                placeholder="Help request title" 
+                className="col-span-3" 
+                value={formData.title}
+                onChange={handleInputChange}
+              />
             </div>
             
             <div className="grid grid-cols-4 items-start gap-4">
@@ -200,6 +318,8 @@ const HelpNeededPage = () => {
                 placeholder="Describe what help you need and provide any necessary details" 
                 className="col-span-3"
                 rows={4}
+                value={formData.description}
+                onChange={handleInputChange}
               />
             </div>
             
@@ -207,22 +327,43 @@ const HelpNeededPage = () => {
               <Label htmlFor="date-needed" className="text-right">
                 Date Needed
               </Label>
-              <Input id="date-needed" type="date" className="col-span-3" />
+              <Input 
+                id="date-needed" 
+                type="date" 
+                className="col-span-3" 
+                value={formData.dateNeeded}
+                onChange={handleInputChange}
+              />
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="time-needed" className="text-right">
                 Time
               </Label>
-              <Input id="time-needed" type="time" className="col-span-3" />
+              <Input 
+                id="time-needed" 
+                type="time" 
+                className="col-span-3" 
+                value={formData.timeNeeded}
+                onChange={handleInputChange}
+              />
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddHelpOpen(false)}>
+            <Button variant="outline" onClick={() => setIsAddHelpOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button>Submit Request</Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Submitting...
+                </>
+              ) : (
+                'Submit Request'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
