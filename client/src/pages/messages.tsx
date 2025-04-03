@@ -159,93 +159,95 @@ const MessagesPage = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
         <div className="bg-white dark:bg-neutral-100 rounded-xl shadow-md overflow-hidden">
-          <div className="p-4 border-b border-neutral-200">
-            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="family">Family</TabsTrigger>
-                <TabsTrigger value="groups">Groups</TabsTrigger>
-              </TabsList>
+          <div className="border-b border-neutral-200">
+            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <div className="p-4">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="family">Family</TabsTrigger>
+                  <TabsTrigger value="groups">Groups</TabsTrigger>
+                </TabsList>
+                
+                <div className="mt-4">
+                  <Input placeholder="Search messages..." className="w-full" />
+                </div>
+              </div>
               
-              <div className="mt-4">
-                <Input placeholder="Search messages..." className="w-full" />
+              <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
+                {isLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="text-neutral-500">Loading contacts...</div>
+                  </div>
+                ) : contacts.length === 0 ? (
+                  <div className="text-center py-12 text-neutral-500">
+                    No contacts found.
+                  </div>
+                ) : (
+                  <>
+                    <TabsContent value="all" className="m-0">
+                      {contacts.map((contact) => (
+                        <div 
+                          key={contact.id}
+                          className={`flex items-center p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer ${
+                            selectedUserId === contact.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
+                          }`}
+                          onClick={() => setSelectedUserId(contact.id)}
+                        >
+                          <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
+                            <img 
+                              src={contact.avatarUrl} 
+                              alt={contact.name} 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div>
+                            <div className="font-medium">{contact.name}</div>
+                            <div className="text-xs text-neutral-500">{contact.role}</div>
+                          </div>
+                          {contact.id % 3 === 0 && (
+                            <div className="ml-auto">
+                              <div className="w-2 h-2 rounded-full bg-primary"></div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </TabsContent>
+                    
+                    <TabsContent value="family" className="m-0">
+                      {contacts
+                        .filter(contact => ["Father", "Grandfather", "Aunt", "Sister", "Step-Brother", "Cousin"].includes(contact.role))
+                        .map((contact) => (
+                          <div 
+                            key={contact.id}
+                            className={`flex items-center p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer ${
+                              selectedUserId === contact.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
+                            }`}
+                            onClick={() => setSelectedUserId(contact.id)}
+                          >
+                            <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
+                              <img 
+                                src={contact.avatarUrl} 
+                                alt={contact.name} 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div>
+                              <div className="font-medium">{contact.name}</div>
+                              <div className="text-xs text-neutral-500">{contact.role}</div>
+                            </div>
+                          </div>
+                        ))}
+                    </TabsContent>
+                    
+                    <TabsContent value="groups" className="m-0">
+                      <div className="text-center py-8 text-neutral-500">
+                        No group conversations yet.
+                      </div>
+                    </TabsContent>
+                  </>
+                )}
               </div>
             </Tabs>
-          </div>
-          
-          <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="text-neutral-500">Loading contacts...</div>
-              </div>
-            ) : contacts.length === 0 ? (
-              <div className="text-center py-12 text-neutral-500">
-                No contacts found.
-              </div>
-            ) : (
-              <div>
-                <TabsContent value="all" className="m-0">
-                  {contacts.map((contact) => (
-                    <div 
-                      key={contact.id}
-                      className={`flex items-center p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer ${
-                        selectedUserId === contact.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
-                      }`}
-                      onClick={() => setSelectedUserId(contact.id)}
-                    >
-                      <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                        <img 
-                          src={contact.avatarUrl} 
-                          alt={contact.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="font-medium">{contact.name}</div>
-                        <div className="text-xs text-neutral-500">{contact.role}</div>
-                      </div>
-                      {contact.id % 3 === 0 && (
-                        <div className="ml-auto">
-                          <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </TabsContent>
-                
-                <TabsContent value="family" className="m-0">
-                  {contacts
-                    .filter(contact => ["Father", "Grandfather", "Aunt", "Sister", "Step-Brother", "Cousin"].includes(contact.role))
-                    .map((contact) => (
-                      <div 
-                        key={contact.id}
-                        className={`flex items-center p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer ${
-                          selectedUserId === contact.id ? 'bg-neutral-100 dark:bg-neutral-800' : ''
-                        }`}
-                        onClick={() => setSelectedUserId(contact.id)}
-                      >
-                        <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                          <img 
-                            src={contact.avatarUrl} 
-                            alt={contact.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div>
-                          <div className="font-medium">{contact.name}</div>
-                          <div className="text-xs text-neutral-500">{contact.role}</div>
-                        </div>
-                      </div>
-                    ))}
-                </TabsContent>
-                
-                <TabsContent value="groups" className="m-0">
-                  <div className="text-center py-8 text-neutral-500">
-                    No group conversations yet.
-                  </div>
-                </TabsContent>
-              </div>
-            )}
           </div>
         </div>
         
