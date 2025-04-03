@@ -15,12 +15,13 @@
 }
 
 .tree-node {
-  transition: all 0.2s ease;
+  transition: filter 0.2s ease;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .tree-node:hover {
-  filter: brightness(1.1);
-  transform: scale(1.05);
+  filter: brightness(1.1) drop-shadow(0 0 4px rgba(0, 0, 0, 0.2));
 }
 
 .relationship-line {
@@ -55,10 +56,12 @@
 
 /* Pulse animation for current user node */
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.2); }
 }
 
 .pulse-animation {
   animation: pulse 2s infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }
