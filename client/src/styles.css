@@ -1,0 +1,64 @@
+/* Additional styles for the family tree and other components */
+
+/* Font families */
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Family tree canvas styles */
+.family-tree-canvas {
+  min-height: 70vh;
+}
+
+.tree-node {
+  transition: all 0.2s ease;
+}
+
+.tree-node:hover {
+  filter: brightness(1.1);
+  transform: scale(1.05);
+}
+
+.relationship-line {
+  stroke-width: 2px;
+  stroke-linecap: round;
+}
+
+/* Calendar styles */
+.calendar-day {
+  aspect-ratio: 1/1;
+}
+
+.calendar-day.has-event {
+  position: relative;
+}
+
+.calendar-day.has-event::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #4A6FA5;
+}
+
+.dark .calendar-day.has-event::after {
+  background-color: #6B9AC4;
+}
+
+/* Pulse animation for current user node */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.pulse-animation {
+  animation: pulse 2s infinite;
+}
