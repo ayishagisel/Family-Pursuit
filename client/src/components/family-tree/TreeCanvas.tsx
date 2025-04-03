@@ -6,9 +6,19 @@ import { FamilyMember, Relationship } from "@shared/schema";
 
 interface TreeCanvasProps {
   onNodeClick?: (member: FamilyMember) => void;
+  onZoomChange?: (scale: number) => void;
+  zoomIn?: boolean;
+  zoomOut?: boolean;
+  resetView?: boolean;
 }
 
-const TreeCanvas = ({ onNodeClick }: TreeCanvasProps) => {
+const TreeCanvas = ({ 
+  onNodeClick, 
+  onZoomChange,
+  zoomIn,
+  zoomOut,
+  resetView
+}: TreeCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isDragging, setIsDragging] = useState(false);
@@ -127,6 +137,44 @@ const TreeCanvas = ({ onNodeClick }: TreeCanvasProps) => {
       window.removeEventListener('mouseleave', handleMouseUp);
     };
   }, []);
+
+  // Handle zoom change notification
+  useEffect(() => {
+    if (onZoomChange) {
+      onZoomChange(transform.scale);
+    }
+  }, [transform.scale, onZoomChange]);
+
+  // Handle zoom in button click
+  useEffect(() => {
+    if (zoomIn) {
+      const newScale = Math.min(2, transform.scale + 0.2);
+      // Zoom centered on canvas center
+      setTransform(prev => ({
+        ...prev,
+        scale: newScale
+      }));
+    }
+  }, [zoomIn]);
+
+  // Handle zoom out button click
+  useEffect(() => {
+    if (zoomOut) {
+      const newScale = Math.max(0.5, transform.scale - 0.2);
+      // Zoom centered on canvas center
+      setTransform(prev => ({
+        ...prev,
+        scale: newScale
+      }));
+    }
+  }, [zoomOut]);
+
+  // Handle reset view button click
+  useEffect(() => {
+    if (resetView) {
+      setTransform({ x: 0, y: 0, scale: 1 });
+    }
+  }, [resetView]);
 
   if (isMembersLoading || isRelationshipsLoading) {
     return (

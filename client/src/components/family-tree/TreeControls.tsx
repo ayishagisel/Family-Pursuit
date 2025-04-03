@@ -1,44 +1,70 @@
+import { Search, ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 interface TreeControlsProps {
-  onSearch: () => void;
+  onSearch?: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
+  currentZoom?: number;
 }
 
-const TreeControls = ({ onSearch, onZoomIn, onZoomOut, onReset }: TreeControlsProps) => {
+const TreeControls = ({ 
+  onSearch, 
+  onZoomIn, 
+  onZoomOut, 
+  onReset, 
+  currentZoom = 1
+}: TreeControlsProps) => {
   return (
-    <div className="flex space-x-2">
-      <button
-        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg"
-        onClick={onSearch}
-        title="Search Family Tree"
-      >
-        <i className="fas fa-search"></i>
-      </button>
+    <div className="flex items-center space-x-2">
+      {onSearch && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onSearch}
+          title="Search Family Tree"
+          className="h-8 w-8"
+        >
+          <Search className="h-4 w-4" />
+        </Button>
+      )}
       
-      <button
-        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onZoomIn}
         title="Zoom In"
+        className="h-8 w-8"
       >
-        <i className="fas fa-plus"></i>
-      </button>
+        <ZoomIn className="h-4 w-4" />
+      </Button>
       
-      <button
-        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg"
+      {currentZoom !== 1 && (
+        <span className="text-xs text-muted-foreground px-1">
+          {Math.round(currentZoom * 100)}%
+        </span>
+      )}
+      
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onZoomOut}
-        title="Zoom Out"
+        title="Zoom Out" 
+        className="h-8 w-8"
       >
-        <i className="fas fa-minus"></i>
-      </button>
+        <ZoomOut className="h-4 w-4" />
+      </Button>
       
-      <button
-        className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={onReset}
         title="Reset View"
+        className="h-8 w-8"
       >
-        <i className="fas fa-expand"></i>
-      </button>
+        <Maximize className="h-4 w-4" />
+      </Button>
     </div>
   );
 };

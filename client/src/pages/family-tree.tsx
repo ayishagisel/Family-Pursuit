@@ -35,6 +35,12 @@ const FamilyTreePage = () => {
   const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
   const [isRelationsDialogOpen, setIsRelationsDialogOpen] = useState(false);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'warning' | 'error'>('idle');
+  
+  // Zoom controls state
+  const [currentZoom, setCurrentZoom] = useState(1);
+  const [zoomInTrigger, setZoomInTrigger] = useState(false);
+  const [zoomOutTrigger, setZoomOutTrigger] = useState(false);
+  const [resetViewTrigger, setResetViewTrigger] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { validateFamilyMemberData, isValidating, validationResult } = useAIValidation();
@@ -150,18 +156,23 @@ const FamilyTreePage = () => {
   };
 
   const handleZoomIn = () => {
-    // Implement zoom in - This would interact with the TreeCanvas component
-    alert("Zoom in functionality to be implemented");
+    // Trigger zoom in for TreeCanvas
+    setZoomInTrigger(prev => !prev);
   };
 
   const handleZoomOut = () => {
-    // Implement zoom out
-    alert("Zoom out functionality to be implemented");
+    // Trigger zoom out for TreeCanvas
+    setZoomOutTrigger(prev => !prev);
   };
 
   const handleReset = () => {
-    // Reset zoom and pan
-    alert("Reset view functionality to be implemented");
+    // Trigger reset view for TreeCanvas
+    setResetViewTrigger(prev => !prev);
+  };
+  
+  // Function to keep track of current zoom level
+  const handleZoomChange = (zoom: number) => {
+    setCurrentZoom(zoom);
   };
 
   const handleAddMember = () => {
@@ -268,10 +279,17 @@ const FamilyTreePage = () => {
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onReset={handleReset}
+            currentZoom={currentZoom}
           />
         </div>
         
-        <TreeCanvas onNodeClick={handleNodeClick} />
+        <TreeCanvas 
+          onNodeClick={handleNodeClick}
+          onZoomChange={handleZoomChange}
+          zoomIn={zoomInTrigger}
+          zoomOut={zoomOutTrigger}
+          resetView={resetViewTrigger}
+        />
         
         <div className="p-4 border-t border-neutral-200 flex justify-between items-center">
           <div className="flex space-x-4">
