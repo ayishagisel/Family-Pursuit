@@ -17,7 +17,7 @@ import { FamilyMember, Relationship, insertFamilyMemberSchema } from "@shared/sc
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAIValidation } from "@/hooks/useAIValidation";
-import { Loader2, AlertTriangle, Check, Users } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Users, Search, UserX } from "lucide-react";
 import { z } from "zod";
 
 // Extended zod schema with validation
@@ -150,9 +150,44 @@ const FamilyTreePage = () => {
     }
   };
 
+  // Search state
+  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<FamilyMember[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   const handleSearch = () => {
-    // Implement search functionality
-    alert("Search functionality to be implemented");
+    // Open search dialog
+    setIsSearchDialogOpen(true);
+  };
+  
+  const performSearch = () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    // Search through family members for matches in name or role
+    const query = searchQuery.toLowerCase();
+    const results = familyMembers.filter((member: FamilyMember) => 
+      member.name.toLowerCase().includes(query) || 
+      member.role.toLowerCase().includes(query)
+    );
+    
+    setSearchResults(results);
+    setIsSearching(false);
+  };
+  
+  // Focus member on search result click
+  const handleSearchResultClick = (member: FamilyMember) => {
+    // Focus on specific node (could trigger animation or highlighting)
+    setSelectedMember(member);
+    setIsSearchDialogOpen(false);
+    
+    // Open details dialog
+    setIsDialogOpen(true);
   };
 
   const handleZoomIn = () => {
@@ -360,6 +395,98 @@ const FamilyTreePage = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Search Dialog */}
+      <Dialog open={isSearchDialogOpen} onOpenChange={setIsSearchDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Search className="mr-2 h-5 w-5" />
+              Search Family Tree
+            </DialogTitle>
+            <DialogDescription>
+              Find family members by name or role
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Search by name or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    performSearch();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button 
+                onClick={performSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto">
+              {searchResults.length === 0 && searchQuery.trim() !== '' ? (
+                <div className="text-center p-6 bg-muted/30 rounded-lg">
+                  <UserX className="h-10 w-10 mx-auto mb-2 text-muted-foreground/60" />
+                  <p className="text-muted-foreground">No family members found for "{searchQuery}"</p>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="text-center p-6 bg-muted/30 rounded-lg">
+                  <Search className="h-10 w-10 mx-auto mb-2 text-muted-foreground/60" />
+                  <p className="text-muted-foreground">Enter a search term to find family members</p>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {searchResults.map((member) => (
+                    <Card 
+                      key={member.id} 
+                      className="overflow-hidden cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => handleSearchResultClick(member)}
+                    >
+                      <CardContent className="p-3 flex items-center">
+                        <Avatar className="h-10 w-10 mr-3">
+                          <AvatarImage src={member.avatarUrl || ""} alt={member.name} />
+                          <AvatarFallback>{member.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{member.name}</p>
+                          <p className="text-sm text-muted-foreground">{member.role}</p>
+                        </div>
+                        <div className="ml-auto">
+                          <div className={`w-3 h-3 rounded-full ${
+                            member.relationship === 'biological' ? 'bg-[#5AAE61]' : 
+                            member.relationship === 'adoptive' ? 'bg-[#9B7EDE]' : 
+                            'bg-[#F2994A]'
+                          }`}></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsSearchDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
