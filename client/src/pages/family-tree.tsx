@@ -32,6 +32,7 @@ const FamilyTreePage = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+  const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
   const [isRelationsDialogOpen, setIsRelationsDialogOpen] = useState(false);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'warning' | 'error'>('idle');
   const { toast } = useToast();
@@ -93,6 +94,30 @@ const FamilyTreePage = () => {
       console.error("Failed to add family member:", error);
     },
   });
+  
+  // Create mutation for updating an existing family member
+  const updateMemberMutation = useMutation({
+    mutationFn: async (data: { id: number; member: Partial<AddMemberFormValues> }) => {
+      return apiRequest("PUT", `/api/family-members/${data.id}`, data.member);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Family member updated successfully!",
+      });
+      setIsEditMemberDialogOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/family-members"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update family member. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to update family member:", error);
+    },
+  });
 
   const handleNodeClick = (member: FamilyMember) => {
     setSelectedMember(member);
@@ -103,6 +128,20 @@ const FamilyTreePage = () => {
     // Close the member details dialog and open the relationships dialog
     setIsDialogOpen(false);
     setIsRelationsDialogOpen(true);
+  };
+  
+  const handleEditMember = () => {
+    // Close the member details dialog and open the edit dialog
+    if (selectedMember) {
+      // Pre-populate the form with the selected member's data
+      form.setValue('name', selectedMember.name);
+      form.setValue('role', selectedMember.role);
+      form.setValue('relationship', selectedMember.relationship);
+      form.setValue('avatarUrl', selectedMember.avatarUrl || '');
+      
+      setIsDialogOpen(false);
+      setIsEditMemberDialogOpen(true);
+    }
   };
 
   const handleSearch = () => {
@@ -130,14 +169,14 @@ const FamilyTreePage = () => {
     setIsAddMemberDialogOpen(true);
   };
 
-  // Effect to reset validation status when dialog closes
+  // Effect to reset validation status when dialogs close
   useEffect(() => {
-    if (!isAddMemberDialogOpen) {
+    if (!isAddMemberDialogOpen && !isEditMemberDialogOpen) {
       setValidationStatus('idle');
     }
-  }, [isAddMemberDialogOpen]);
+  }, [isAddMemberDialogOpen, isEditMemberDialogOpen]);
 
-  const onSubmit = async (values: AddMemberFormValues) => {
+  const handleValidation = async (values: AddMemberFormValues) => {
     // Set validating status
     setValidationStatus('validating');
     
@@ -163,25 +202,40 @@ const FamilyTreePage = () => {
         
         // If AI provided suggestions, apply them to form
         if (result.suggestions) {
-          const updatedValues = { ...values };
           if (result.suggestions.name) form.setValue('name', result.suggestions.name);
           if (result.suggestions.role) form.setValue('role', result.suggestions.role);
           if (result.suggestions.relationship) form.setValue('relationship', result.suggestions.relationship as "biological" | "adoptive" | "step");
         }
         
-        // Return early without submitting if validation failed
-        return;
+        return false; // Validation failed
       }
       
-      // If validation passed, set success status and submit
+      // If validation passed, set success status
       setValidationStatus('success');
-      addMemberMutation.mutate(values);
+      return true; // Validation succeeded
     } catch (error) {
       console.error("Error during form validation:", error);
       setValidationStatus('error');
-      
-      // Continue with submission even if validation fails to avoid blocking users
+      return true; // Continue despite error to avoid blocking users
+    }
+  };
+  
+  const onSubmit = async (values: AddMemberFormValues) => {
+    const isValid = await handleValidation(values);
+    if (isValid) {
       addMemberMutation.mutate(values);
+    }
+  };
+  
+  const onUpdate = async (values: AddMemberFormValues) => {
+    if (!selectedMember) return;
+    
+    const isValid = await handleValidation(values);
+    if (isValid) {
+      updateMemberMutation.mutate({
+        id: selectedMember.id,
+        member: values
+      });
     }
   };
 
@@ -270,7 +324,10 @@ const FamilyTreePage = () => {
               </div>
               
               <div className="w-full flex space-x-2">
-                <button className="flex-1 bg-primary hover:bg-primary/90 text-white py-2 rounded-lg">
+                <button 
+                  className="flex-1 bg-primary hover:bg-primary/90 text-white py-2 rounded-lg"
+                  onClick={handleEditMember}
+                >
                   <i className="fas fa-edit mr-2"></i>
                   Edit
                 </button>
@@ -369,6 +426,162 @@ const FamilyTreePage = () => {
               Close
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Member Dialog */}
+      <Dialog open={isEditMemberDialogOpen} onOpenChange={setIsEditMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Family Member</DialogTitle>
+            <DialogDescription>
+              Update the details for {selectedMember?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onUpdate)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Father, Sister, Cousin" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="relationship"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Relationship Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select relationship type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="biological">Biological</SelectItem>
+                        <SelectItem value="adoptive">Adoptive</SelectItem>
+                        <SelectItem value="step">Step/In-law</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="avatarUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Avatar URL (optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="https://example.com/avatar.jpg" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* AI Validation Alert */}
+              {validationStatus === 'warning' && validationResult && validationResult.issues.length > 0 && (
+                <Alert variant="warning" className="mt-2 mb-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>AI Validation Warning</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc pl-5 mt-2 text-sm">
+                      {validationResult.issues.map((issue, index) => (
+                        <li key={index}>{issue}</li>
+                      ))}
+                    </ul>
+                    {validationResult.suggestions && (
+                      <div className="mt-2 text-sm">
+                        <p className="font-medium">Suggestions:</p>
+                        <ul className="list-disc pl-5">
+                          {validationResult.suggestions.name && (
+                            <li>Name: {validationResult.suggestions.name}</li>
+                          )}
+                          {validationResult.suggestions.role && (
+                            <li>Role: {validationResult.suggestions.role}</li>
+                          )}
+                          {validationResult.suggestions.relationship && (
+                            <li>Relationship: {validationResult.suggestions.relationship}</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {validationStatus === 'success' && (
+                <Alert variant="default" className="mt-2 mb-2 bg-green-50 text-green-800 border-green-200">
+                  <Check className="h-4 w-4" />
+                  <AlertTitle>AI Validation Passed</AlertTitle>
+                  <AlertDescription>
+                    The family member data looks valid and consistent.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditMemberDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={updateMemberMutation.isPending || isValidating}
+                >
+                  {updateMemberMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : isValidating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Validating...
+                    </>
+                  ) : (
+                    "Update Member"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
