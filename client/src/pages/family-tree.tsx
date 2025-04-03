@@ -1,17 +1,75 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
-import { FamilyMember } from "@shared/schema";
+import { FamilyMember, insertFamilyMemberSchema } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+// Extended zod schema with validation
+const addMemberFormSchema = insertFamilyMemberSchema.extend({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  role: z.string().min(2, "Role must be at least 2 characters"),
+});
+
+type AddMemberFormValues = z.infer<typeof addMemberFormSchema>;
 
 const FamilyTreePage = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Get family members for the legend
   const { data: familyMembers = [] } = useQuery({
     queryKey: ["/api/family-members"],
+  });
+
+  // Set up form
+  const form = useForm<AddMemberFormValues>({
+    resolver: zodResolver(addMemberFormSchema),
+    defaultValues: {
+      name: "",
+      role: "",
+      relationship: "biological",
+      avatarUrl: "https://randomuser.me/api/portraits/men/1.jpg", // Default avatar for demo
+    }
+  });
+
+  // Create mutation for adding a new family member
+  const addMemberMutation = useMutation({
+    mutationFn: async (newMember: AddMemberFormValues) => {
+      return apiRequest("/api/family-members", {
+        method: "POST",
+        body: JSON.stringify(newMember),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "New family member added successfully!",
+      });
+      setIsAddMemberDialogOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/family-members"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add family member. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to add family member:", error);
+    },
   });
 
   const handleNodeClick = (member: FamilyMember) => {
@@ -41,7 +99,11 @@ const FamilyTreePage = () => {
 
   const handleAddMember = () => {
     // Open dialog to add new family member
-    alert("Add member functionality to be implemented");
+    setIsAddMemberDialogOpen(true);
+  };
+
+  const onSubmit = (values: AddMemberFormValues) => {
+    addMemberMutation.mutate(values);
   };
 
   return (
@@ -111,7 +173,7 @@ const FamilyTreePage = () => {
             <div className="flex flex-col items-center mt-4">
               <div className="w-24 h-24 rounded-full overflow-hidden mb-4">
                 <img 
-                  src={selectedMember.avatarUrl} 
+                  src={selectedMember.avatarUrl || ""} 
                   alt={selectedMember.name} 
                   className="w-full h-full object-cover"
                 />
@@ -141,6 +203,116 @@ const FamilyTreePage = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Member Dialog */}
+      <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Family Member</DialogTitle>
+            <DialogDescription>
+              Enter the details to add a new member to your family tree.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Father, Sister, Cousin" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="relationship"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Relationship Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select relationship type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="biological">Biological</SelectItem>
+                        <SelectItem value="adoptive">Adoptive</SelectItem>
+                        <SelectItem value="step">Step/In-law</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="avatarUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Avatar URL (optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="https://example.com/avatar.jpg" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAddMemberDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={addMemberMutation.isPending}
+                >
+                  {addMemberMutation.isPending ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Member"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </>
