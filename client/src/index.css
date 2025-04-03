@@ -11,3 +11,36 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Calendar styles */
+  .calendar-day {
+    @apply rounded p-1 transition-all duration-150;
+  }
+
+  .calendar-day.has-event {
+    @apply relative;
+  }
+
+  .calendar-day.has-event:hover {
+    @apply bg-primary/20;
+  }
+
+  /* Event list styles */
+  div[role="button"] {
+    @apply relative transition-all duration-150;
+  }
+
+  div[role="button"]:hover {
+    @apply shadow-sm bg-primary/5;
+  }
+
+  div[role="button"]::after {
+    content: "";
+    @apply absolute inset-0 rounded-lg border border-transparent;
+  }
+
+  div[role="button"]:focus::after {
+    @apply border-primary/30;
+  }
+}

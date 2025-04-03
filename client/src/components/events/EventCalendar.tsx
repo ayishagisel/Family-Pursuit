@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from "date-fns";
 import { Event } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import EventItem from "./EventItem";
 
 interface EventCalendarProps {
   events: Event[];
@@ -8,6 +11,8 @@ interface EventCalendarProps {
 
 const EventCalendar = ({ events }: EventCalendarProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
   
   const nextMonth = () => {
     setCurrentMonth(addMonths(currentMonth, 1));
@@ -51,6 +56,22 @@ const EventCalendar = ({ events }: EventCalendarProps) => {
     });
   };
 
+  // Get events for a specific day
+  const getEventsForDay = (day: Date) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate.getDate() === day.getDate() && 
+             eventDate.getMonth() === day.getMonth() && 
+             eventDate.getFullYear() === day.getFullYear();
+    });
+  };
+
+  // Handle day click to show events for that day
+  const handleDayClick = (day: Date) => {
+    setSelectedDate(day);
+    setIsDateDialogOpen(true);
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -92,14 +113,55 @@ const EventCalendar = ({ events }: EventCalendarProps) => {
                 calendar-day text-sm py-1
                 ${!isCurrentMonth ? 'text-neutral-400' : ''}
                 ${isDayToday ? 'bg-accent/20 rounded-full font-medium' : ''}
-                ${dayHasEvents ? 'has-event' : ''}
+                ${dayHasEvents ? 'has-event font-medium text-primary' : ''}
+                ${isCurrentMonth ? 'hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer' : ''}
+                transition-colors
               `}
+              onClick={() => isCurrentMonth && handleDayClick(day)}
+              role={isCurrentMonth ? "button" : undefined}
+              aria-label={isCurrentMonth ? `View events for ${format(day, 'MMMM d, yyyy')}` : undefined}
             >
               {format(day, 'd')}
+              {dayHasEvents && <div className="w-1 h-1 bg-primary rounded-full mx-auto mt-1"></div>}
             </div>
           );
         })}
       </div>
+
+      {/* Day Events Dialog */}
+      {selectedDate && (
+        <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Events on {format(selectedDate, 'MMMM d, yyyy')}</DialogTitle>
+            </DialogHeader>
+            
+            <div className="py-4 max-h-[60vh] overflow-y-auto">
+              {getEventsForDay(selectedDate).length > 0 ? (
+                getEventsForDay(selectedDate).map(event => (
+                  <EventItem key={event.id} event={event} />
+                ))
+              ) : (
+                <div className="text-center py-8 text-neutral-500">
+                  No events scheduled for this day.
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDateDialogOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => {
+                setIsDateDialogOpen(false);
+                // This would normally open the Add Event dialog with the date pre-filled
+              }}>
+                Add Event
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
