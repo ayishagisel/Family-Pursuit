@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -8,13 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
-import { FamilyMember, insertFamilyMemberSchema } from "@shared/schema";
+import { FamilyMember, Relationship, insertFamilyMemberSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAIValidation } from "@/hooks/useAIValidation";
-import { Loader2, AlertTriangle, Check } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Users } from "lucide-react";
 import { z } from "zod";
 
 // Extended zod schema with validation
@@ -29,15 +32,32 @@ const FamilyTreePage = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+  const [isRelationsDialogOpen, setIsRelationsDialogOpen] = useState(false);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'warning' | 'error'>('idle');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { validateFamilyMemberData, isValidating, validationResult } = useAIValidation();
   
-  // Get family members for the legend
+  // Get family members
   const { data: familyMembers = [] } = useQuery({
     queryKey: ["/api/family-members"],
   });
+  
+  // Get all relationships
+  const { data: allRelationships = [] } = useQuery({
+    queryKey: ["/api/relationships"],
+  });
+  
+  // Get member-specific relationships when a member is selected
+  const memberRelationships = useMemo(() => {
+    if (!selectedMember) return [];
+    
+    // Find relationships where the selected member is either the source or target
+    return allRelationships.filter((relationship: Relationship) => 
+      relationship.sourceMemberId === selectedMember.id || 
+      relationship.targetMemberId === selectedMember.id
+    );
+  }, [selectedMember, allRelationships]);
 
   // Set up form
   const form = useForm<AddMemberFormValues>({
@@ -77,6 +97,12 @@ const FamilyTreePage = () => {
   const handleNodeClick = (member: FamilyMember) => {
     setSelectedMember(member);
     setIsDialogOpen(true);
+  };
+  
+  const handleViewRelations = () => {
+    // Close the member details dialog and open the relationships dialog
+    setIsDialogOpen(false);
+    setIsRelationsDialogOpen(true);
   };
 
   const handleSearch = () => {
@@ -249,13 +275,100 @@ const FamilyTreePage = () => {
                   Edit
                 </button>
                 
-                <button className="flex-1 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 py-2 rounded-lg">
+                <button 
+                  className="flex-1 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 py-2 rounded-lg"
+                  onClick={handleViewRelations}
+                >
                   <i className="fas fa-sitemap mr-2"></i>
                   View Relations
                 </button>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Relationships Dialog */}
+      <Dialog open={isRelationsDialogOpen} onOpenChange={setIsRelationsDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Users className="mr-2 h-5 w-5" />
+              Relationships for {selectedMember?.name}
+            </DialogTitle>
+            <DialogDescription>
+              View all connections and relationships for this family member.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            {memberRelationships.length === 0 ? (
+              <div className="text-center p-6 bg-muted/30 rounded-lg">
+                <Users className="h-10 w-10 mx-auto mb-2 text-muted-foreground/60" />
+                <p className="text-muted-foreground">No relationships found for this family member.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {memberRelationships.map((relationship) => {
+                  // Find the other member in the relationship (not the selected member)
+                  const otherMemberId = 
+                    relationship.sourceMemberId === selectedMember?.id 
+                      ? relationship.targetMemberId 
+                      : relationship.sourceMemberId;
+                  
+                  const otherMember = familyMembers.find((m: FamilyMember) => m.id === otherMemberId);
+                  
+                  if (!otherMember) return null;
+                  
+                  // Determine relationship direction
+                  const direction = relationship.sourceMemberId === selectedMember?.id 
+                    ? "to" 
+                    : "from";
+                    
+                  return (
+                    <Card key={relationship.id} className="overflow-hidden">
+                      <CardHeader className="bg-muted/20 pb-2">
+                        <CardTitle className="text-base font-semibold flex items-center">
+                          <div className={`w-3 h-3 rounded-full mr-2 ${
+                            otherMember.relationship === 'biological' ? 'bg-[#5AAE61]' : 
+                            otherMember.relationship === 'adoptive' ? 'bg-[#9B7EDE]' : 
+                            'bg-[#F2994A]'
+                          }`}></div>
+                          {otherMember.name}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <div className="flex items-center">
+                          <Avatar className="h-9 w-9 mr-3">
+                            <AvatarImage src={otherMember.avatarUrl || ""} alt={otherMember.name} />
+                            <AvatarFallback>{otherMember.name.substring(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{otherMember.role}</p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {direction === "to" ? "Connected to" : "Connected from"} 
+                              <Badge variant="outline" className="ml-2 capitalize">
+                                {relationship.type || otherMember.relationship}
+                              </Badge>
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsRelationsDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
