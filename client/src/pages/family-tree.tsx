@@ -327,21 +327,21 @@ const FamilyTreePage = () => {
         />
         
         <div className="p-4 border-t border-neutral-200 flex justify-between items-center">
-          <div className="flex space-x-4">
-            <div className="flex items-center">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center bg-white dark:bg-neutral-800 px-2 py-1 rounded-md">
               <div className="w-3 h-3 rounded-full bg-[#5AAE61] mr-2"></div>
-              <span className="text-sm">Biological</span>
+              <span className="text-sm text-neutral-900 dark:text-white">Biological</span>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center bg-white dark:bg-neutral-800 px-2 py-1 rounded-md">
               <div className="w-3 h-3 rounded-full bg-[#9B7EDE] mr-2"></div>
-              <span className="text-sm">Adoptive</span>
+              <span className="text-sm text-neutral-900 dark:text-white">Adoptive</span>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center bg-white dark:bg-neutral-800 px-2 py-1 rounded-md">
               <div className="w-3 h-3 rounded-full bg-[#F2994A] mr-2"></div>
-              <span className="text-sm">Step/In-law</span>
+              <span className="text-sm text-neutral-900 dark:text-white">Step/In-law</span>
             </div>
           </div>
-          <button className="text-primary hover:text-primary/80 text-sm font-medium">
+          <button className="text-primary hover:text-primary/80 text-sm font-medium bg-white dark:bg-neutral-800 px-3 py-1 rounded-md">
             <i className="fas fa-pen mr-1"></i> Edit Relationships
           </button>
         </div>
