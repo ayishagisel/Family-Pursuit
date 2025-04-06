@@ -17,21 +17,27 @@ async function migrate() {
     await db.execute(sql`SELECT NOW()`);
     console.log('✅ PostgreSQL connection successful');
     
-    // Drop tables if they already exist
-    try {
-      await db.execute(`
-        DROP TABLE IF EXISTS messages CASCADE;
-        DROP TABLE IF EXISTS help_requests CASCADE;
-        DROP TABLE IF EXISTS documents CASCADE;
-        DROP TABLE IF EXISTS events CASCADE;
-        DROP TABLE IF EXISTS relationships CASCADE;
-        DROP TABLE IF EXISTS family_members CASCADE;
-        DROP TABLE IF EXISTS users CASCADE;
-      `);
-      console.log('✅ Old tables dropped successfully');
-    } catch (error) {
-      console.error('❌ Error dropping tables:', error);
-      // Continue anyway as we'll try to create them
+    // Only drop tables if explicitly told to do so with an environment variable
+    const shouldDropTables = process.env.DROP_TABLES === 'true';
+    
+    if (shouldDropTables) {
+      try {
+        await db.execute(`
+          DROP TABLE IF EXISTS messages CASCADE;
+          DROP TABLE IF EXISTS help_requests CASCADE;
+          DROP TABLE IF EXISTS documents CASCADE;
+          DROP TABLE IF EXISTS events CASCADE;
+          DROP TABLE IF EXISTS relationships CASCADE;
+          DROP TABLE IF EXISTS family_members CASCADE;
+          DROP TABLE IF EXISTS users CASCADE;
+        `);
+        console.log('✅ Old tables dropped successfully');
+      } catch (error) {
+        console.error('❌ Error dropping tables:', error);
+        // Continue anyway as we'll try to create them
+      }
+    } else {
+      console.log('ℹ️ Skipping table drop (set DROP_TABLES=true to drop tables)');
     }
     
     // Create tables based on schema definitions
