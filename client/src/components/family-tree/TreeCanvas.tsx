@@ -20,7 +20,8 @@ const TreeCanvas = ({
   resetView
 }: TreeCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  // Start with a zoomed in view centered on the canvas
+  const [transform, setTransform] = useState({ x: 200, y: 50, scale: 1.5 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
@@ -172,7 +173,7 @@ const TreeCanvas = ({
   // Handle reset view button click
   useEffect(() => {
     if (resetView) {
-      setTransform({ x: 0, y: 0, scale: 1 });
+      setTransform({ x: 200, y: 50, scale: 1.5 });
     }
   }, [resetView]);
 

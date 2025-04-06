@@ -1,5 +1,5 @@
 import { FamilyMember } from "@shared/schema";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TreeNodeProps {
   member: FamilyMember;
@@ -11,7 +11,8 @@ interface TreeNodeProps {
 }
 
 const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNodeProps) => {
-  const [imageError, setImageError] = useState(false);
+  // Always use initials for now since external images are failing
+  const [useInitials, setUseInitials] = useState(true);
   
   // Determine color based on relationship type
   const getNodeColor = () => {
@@ -38,11 +39,35 @@ const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNo
       .toUpperCase();
   };
 
+  // Get gender-based avatar color
+  const getAvatarBackgroundColor = () => {
+    // Simple logic to determine background color
+    const hash = member.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      "#4A6FA5", // Blue
+      "#E6704B", // Orange-red
+      "#5AAE61", // Green
+      "#9B7EDE", // Purple
+      "#F2994A", // Orange
+      "#4ECDC4", // Teal
+      "#FF6B6B", // Red
+      "#A364FF", // Lavender
+      "#40C9A2"  // Mint
+    ];
+    return colors[hash % colors.length];
+  };
+
   const nodeColor = getNodeColor();
+  const avatarColor = getAvatarBackgroundColor();
+
+  // Add a highlight animation for the current user
+  const pulseAnimation = isCurrentUser ? {
+    animation: "pulse 2s infinite"
+  } : {};
 
   return (
     <g 
-      className={`tree-node cursor-pointer ${isCurrentUser ? 'pulse-animation' : ''}`}
+      className="tree-node cursor-pointer"
       transform={`translate(${x}, ${y})`}
       onClick={onClick}
     >
@@ -50,34 +75,30 @@ const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNo
       <circle 
         r={size} 
         fill={nodeColor}
+        strokeWidth={isCurrentUser ? 3 : 0}
+        stroke={isCurrentUser ? "#FFF" : "none"}
+        style={pulseAnimation}
       />
       
-      {!imageError ? (
-        // Avatar image
-        <image 
-          href={member.avatarUrl || ""} 
-          x={-size * 0.875} 
-          y={-size * 0.875} 
-          height={size * 1.75} 
-          width={size * 1.75} 
-          clipPath={`circle(${size * 0.875}px at ${size * 0.875}px ${size * 0.875}px)`}
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        // Fallback text with initials when image fails to load
-        <text
-          x="0"
-          y="5"
-          textAnchor="middle"
-          dominantBaseline="middle"
-          className="font-bold text-xl fill-white"
-          fontSize={size * 0.8}
-        >
-          {getInitials()}
-        </text>
-      )}
+      {/* Circle inside for avatar/initials */}
+      <circle 
+        r={size * 0.85} 
+        fill={avatarColor}
+      />
       
-      {/* White background for name text (better contrast in dark mode) */}
+      {/* Initials */}
+      <text
+        x="0"
+        y="5"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        className="font-bold fill-white"
+        fontSize={size * 0.65}
+      >
+        {getInitials()}
+      </text>
+      
+      {/* White background for name text (better contrast) */}
       <rect
         x={-size * 1.5}
         y={size + 5}
@@ -108,6 +129,18 @@ const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNo
       >
         {member.role}
       </text>
+
+      {/* Pulsing animation for current user */}
+      {isCurrentUser && (
+        <circle
+          r={size + 5}
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2"
+          opacity="0.5"
+          className="animate-ping"
+        />
+      )}
     </g>
   );
 };
