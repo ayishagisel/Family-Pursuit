@@ -279,7 +279,9 @@ Please make sure to update tests as appropriate and ensure your code follows the
 - [Drizzle ORM](https://orm.drizzle.team/) for type-safe database schema
 - [TanStack Query](https://tanstack.com/query/v5/) for data fetching and state management
 - [React Hook Form](https://react-hook-form.com/) for form handling
-- [Tailwind CSS](https://tailwindcss.com/) for styling## Latest Updates
+- [Tailwind CSS](https://tailwindcss.com/) for styling
+
+## Latest Updates
 - Enhanced dark mode accessibility with improved text contrast
 - Fixed family tree visualization with better label readability
 - Improved event and help request management
