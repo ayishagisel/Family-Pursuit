@@ -61,8 +61,8 @@ const FamilyTreePage = () => {
     
     // Find relationships where the selected member is either the source or target
     return allRelationships.filter((relationship: Relationship) => 
-      relationship.sourceMemberId === selectedMember.id || 
-      relationship.targetMemberId === selectedMember.id
+      relationship.source_id === selectedMember.id || 
+      relationship.target_id === selectedMember.id
     );
   }, [selectedMember, allRelationships]);
 
@@ -514,16 +514,16 @@ const FamilyTreePage = () => {
                 {memberRelationships.map((relationship) => {
                   // Find the other member in the relationship (not the selected member)
                   const otherMemberId = 
-                    relationship.sourceMemberId === selectedMember?.id 
-                      ? relationship.targetMemberId 
-                      : relationship.sourceMemberId;
+                    relationship.source_id === selectedMember?.id 
+                      ? relationship.target_id 
+                      : relationship.source_id;
                   
                   const otherMember = familyMembers.find((m: FamilyMember) => m.id === otherMemberId);
                   
                   if (!otherMember) return null;
                   
                   // Determine relationship direction
-                  const direction = relationship.sourceMemberId === selectedMember?.id 
+                  const direction = relationship.source_id === selectedMember?.id 
                     ? "to" 
                     : "from";
                     
@@ -550,7 +550,7 @@ const FamilyTreePage = () => {
                             <div className="text-xs text-muted-foreground capitalize">
                               <span>{direction === "to" ? "Connected to" : "Connected from"}</span> 
                               <Badge variant="outline" className="ml-2 capitalize">
-                                {relationship.type || otherMember.relationship}
+                                {relationship.relationship_type || otherMember.relationship}
                               </Badge>
                             </div>
                           </div>

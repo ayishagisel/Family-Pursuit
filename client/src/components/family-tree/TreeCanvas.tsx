@@ -200,8 +200,8 @@ const TreeCanvas = ({
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
           {/* Relationship Lines */}
           {relationships.map((relationship: Relationship) => {
-            const sourceMember = familyMembers.find((m: FamilyMember) => m.id === relationship.sourceMemberId);
-            const targetMember = familyMembers.find((m: FamilyMember) => m.id === relationship.targetMemberId);
+            const sourceMember = familyMembers.find((m: FamilyMember) => m.id === relationship.source_id);
+            const targetMember = familyMembers.find((m: FamilyMember) => m.id === relationship.target_id);
             
             if (!sourceMember || !targetMember) return null;
             
@@ -215,7 +215,7 @@ const TreeCanvas = ({
                 y1={sourcePos.y}
                 x2={targetPos.x}
                 y2={targetPos.y}
-                type={relationship.relationshipType}
+                type={relationship.relationship_type}
               />
             );
           })}
