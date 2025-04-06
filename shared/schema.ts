@@ -8,9 +8,13 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
-  email: text("email").notNull(),
+  email: text("email").notNull().unique(),
   role: text("role").notNull().default("member"),
   avatarUrl: text("avatar_url"),
+  status: text("status").notNull().default("active"),
+  is_active: boolean("is_active").notNull().default(true),
+  last_login_date: timestamp("last_login_date"),
+  invitation_status: text("invitation_status").default("claimed"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -20,6 +24,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   role: true,
   avatarUrl: true,
+  status: true,
+  is_active: true,
+  invitation_status: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -28,17 +35,23 @@ export type User = typeof users.$inferSelect;
 // Family Member schema
 export const familyMembers = pgTable("family_members", {
   id: serial("id").primaryKey(),
+  user_id: integer("user_id"),
   name: text("name").notNull(),
   role: text("role").notNull(),
   relationship: text("relationship").notNull(), // "biological", "adoptive", "step"
   avatarUrl: text("avatar_url"),
+  birth_date: timestamp("birth_date"),
+  metadata: jsonb("metadata").default("{}"),
 });
 
 export const insertFamilyMemberSchema = createInsertSchema(familyMembers).pick({
+  user_id: true,
   name: true,
   role: true,
   relationship: true,
   avatarUrl: true,
+  birth_date: true,
+  metadata: true,
 });
 
 export type InsertFamilyMember = z.infer<typeof insertFamilyMemberSchema>;
@@ -47,15 +60,15 @@ export type FamilyMember = typeof familyMembers.$inferSelect;
 // Relationship schema
 export const relationships = pgTable("relationships", {
   id: serial("id").primaryKey(),
-  sourceMemberId: integer("source_member_id").notNull(),
-  targetMemberId: integer("target_member_id").notNull(),
-  relationshipType: text("relationship_type").notNull(), // "biological", "adoptive", "step"
+  source_id: integer("source_id").notNull(),
+  target_id: integer("target_id").notNull(),
+  relationship_type: text("relationship_type").notNull(), // "biological", "adoptive", "step"
 });
 
 export const insertRelationshipSchema = createInsertSchema(relationships).pick({
-  sourceMemberId: true,
-  targetMemberId: true,
-  relationshipType: true,
+  source_id: true,
+  target_id: true,
+  relationship_type: true,
 });
 
 export type InsertRelationship = z.infer<typeof insertRelationshipSchema>;
@@ -67,7 +80,8 @@ export const events = pgTable("events", {
   title: text("title").notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
-  createdBy: integer("created_by").notNull(),
+  location: text("location"),
+  user_id: integer("user_id").notNull(),
   attendees: jsonb("attendees").notNull().default("[]"),
   eventType: text("event_type").notNull(), // "birthday", "reunion", "graduation", etc.
 });
@@ -76,7 +90,8 @@ export const insertEventSchema = createInsertSchema(events).pick({
   title: true,
   description: true,
   date: true,
-  createdBy: true,
+  location: true,
+  user_id: true,
   eventType: true,
 });
 
@@ -87,20 +102,18 @@ export type Event = typeof events.$inferSelect;
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  filename: text("filename").notNull(),
-  uploadedBy: integer("uploaded_by").notNull(),
-  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
-  isSecure: boolean("is_secure").notNull().default(false),
-  accessLevel: text("access_level").notNull().default("all"), // "all", "limited", "admin"
-  documentType: text("document_type").notNull(), // "pdf", "image", "contract", etc.
+  content: text("content"),
+  user_id: integer("user_id").notNull(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  permissions: jsonb("permissions").default("{}"),
+  documentType: text("document_type").notNull().default("generic"), // "pdf", "image", "contract", etc.
 });
 
 export const insertDocumentSchema = createInsertSchema(documents).pick({
   title: true,
-  filename: true,
-  uploadedBy: true,
-  isSecure: true,
-  accessLevel: true,
+  content: true,
+  user_id: true,
+  permissions: true,
   documentType: true,
 });
 

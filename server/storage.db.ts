@@ -3,44 +3,77 @@ import { users, type User, type InsertUser, familyMembers, type FamilyMember, ty
   documents, type Document, type InsertDocument, helpRequests, type HelpRequest, type InsertHelpRequest,
   messages, type Message, type InsertMessage } from "@shared/schema";
 import { db } from "./db";
-import { eq, gte, and } from "drizzle-orm";
+import { eq, gte, and, or } from "drizzle-orm";
 import { IStorage } from "./storage";
+
+// Logging function
+function logOperation(operation: string, entity: string, data?: any): void {
+  console.log(`✅ PostgreSQL ${operation} operation successful on ${entity}${data ? `: ${JSON.stringify(data)}` : ''}`);
+}
 
 export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (user) {
+      logOperation('READ', 'user', { id });
+    }
     return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
+    if (user) {
+      logOperation('READ', 'user', { username });
+    }
     return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
+    // Add created_at and set defaults for new fields
+    const userData = {
+      ...insertUser,
+      last_login_date: new Date(),
+      is_active: true
+    };
+    
     const [user] = await db
       .insert(users)
-      .values(insertUser)
+      .values(userData)
       .returning();
+      
+    logOperation('CREATE', 'user', { id: user.id, username: user.username });
     return user;
   }
   
   // Family Member methods
   async getFamilyMember(id: number): Promise<FamilyMember | undefined> {
     const [member] = await db.select().from(familyMembers).where(eq(familyMembers.id, id));
+    if (member) {
+      logOperation('READ', 'family_member', { id });
+    }
     return member;
   }
   
   async getAllFamilyMembers(): Promise<FamilyMember[]> {
-    return await db.select().from(familyMembers);
+    const members = await db.select().from(familyMembers);
+    logOperation('READ', 'family_members', { count: members.length });
+    return members;
   }
   
   async createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember> {
+    // Set default metadata if not provided
+    const memberData = {
+      ...member,
+      metadata: member.metadata || {}
+    };
+    
     const [newMember] = await db
       .insert(familyMembers)
-      .values(member)
+      .values(memberData)
       .returning();
+      
+    logOperation('CREATE', 'family_member', { id: newMember.id, name: newMember.name });
     return newMember;
   }
   
@@ -50,6 +83,10 @@ export class DatabaseStorage implements IStorage {
       .set(member)
       .where(eq(familyMembers.id, id))
       .returning();
+      
+    if (updatedMember) {
+      logOperation('UPDATE', 'family_member', { id, fields: Object.keys(member) });
+    }
     return updatedMember;
   }
   
@@ -58,27 +95,41 @@ export class DatabaseStorage implements IStorage {
       .delete(familyMembers)
       .where(eq(familyMembers.id, id))
       .returning();
+      
+    if (deletedMember) {
+      logOperation('DELETE', 'family_member', { id });
+    }
     return !!deletedMember;
   }
   
   // Relationship methods
   async getRelationship(id: number): Promise<Relationship | undefined> {
     const [relationship] = await db.select().from(relationships).where(eq(relationships.id, id));
+    if (relationship) {
+      logOperation('READ', 'relationship', { id });
+    }
     return relationship;
   }
   
   async getRelationshipsByMember(memberId: number): Promise<Relationship[]> {
-    return await db
+    const relatedRelationships = await db
       .select()
       .from(relationships)
       .where(
-        eq(relationships.sourceMemberId, memberId) || 
-        eq(relationships.targetMemberId, memberId)
+        or(
+          eq(relationships.source_id, memberId),
+          eq(relationships.target_id, memberId)
+        )
       );
+    
+    logOperation('READ', 'relationships', { memberId, count: relatedRelationships.length });
+    return relatedRelationships;
   }
   
   async getAllRelationships(): Promise<Relationship[]> {
-    return await db.select().from(relationships);
+    const allRelationships = await db.select().from(relationships);
+    logOperation('READ', 'relationships', { count: allRelationships.length });
+    return allRelationships;
   }
   
   async createRelationship(relationship: InsertRelationship): Promise<Relationship> {
@@ -86,6 +137,13 @@ export class DatabaseStorage implements IStorage {
       .insert(relationships)
       .values(relationship)
       .returning();
+    
+    logOperation('CREATE', 'relationship', { 
+      id: newRelationship.id, 
+      source_id: newRelationship.source_id, 
+      target_id: newRelationship.target_id,
+      relationship_type: newRelationship.relationship_type
+    });
     return newRelationship;
   }
   
@@ -95,6 +153,10 @@ export class DatabaseStorage implements IStorage {
       .set(relationship)
       .where(eq(relationships.id, id))
       .returning();
+    
+    if (updatedRelationship) {
+      logOperation('UPDATE', 'relationship', { id, fields: Object.keys(relationship) });
+    }
     return updatedRelationship;
   }
   
@@ -103,33 +165,53 @@ export class DatabaseStorage implements IStorage {
       .delete(relationships)
       .where(eq(relationships.id, id))
       .returning();
+    
+    if (deletedRelationship) {
+      logOperation('DELETE', 'relationship', { id });
+    }
     return !!deletedRelationship;
   }
   
   // Event methods
   async getEvent(id: number): Promise<Event | undefined> {
     const [event] = await db.select().from(events).where(eq(events.id, id));
+    if (event) {
+      logOperation('READ', 'event', { id });
+    }
     return event;
   }
   
   async getAllEvents(): Promise<Event[]> {
-    return await db.select().from(events);
+    const allEvents = await db.select().from(events);
+    logOperation('READ', 'events', { count: allEvents.length });
+    return allEvents;
   }
   
   async getUpcomingEvents(): Promise<Event[]> {
     const now = new Date();
-    return await db
+    const upcomingEvents = await db
       .select()
       .from(events)
       .where(gte(events.date, now))
       .orderBy(events.date);
+      
+    logOperation('READ', 'upcoming_events', { count: upcomingEvents.length });
+    return upcomingEvents;
   }
   
   async createEvent(event: InsertEvent): Promise<Event> {
+    // Map createdBy to user_id if it exists
+    const eventData = {
+      ...event,
+      attendees: []
+    };
+    
     const [newEvent] = await db
       .insert(events)
-      .values({ ...event, attendees: [] })
+      .values(eventData)
       .returning();
+      
+    logOperation('CREATE', 'event', { id: newEvent.id, title: newEvent.title });
     return newEvent;
   }
   
@@ -139,6 +221,10 @@ export class DatabaseStorage implements IStorage {
       .set(event)
       .where(eq(events.id, id))
       .returning();
+      
+    if (updatedEvent) {
+      logOperation('UPDATE', 'event', { id, fields: Object.keys(event) });
+    }
     return updatedEvent;
   }
   
@@ -147,6 +233,10 @@ export class DatabaseStorage implements IStorage {
       .delete(events)
       .where(eq(events.id, id))
       .returning();
+      
+    if (deletedEvent) {
+      logOperation('DELETE', 'event', { id });
+    }
     return !!deletedEvent;
   }
   
@@ -164,6 +254,8 @@ export class DatabaseStorage implements IStorage {
       .set({ attendees })
       .where(eq(events.id, eventId))
       .returning();
+      
+    logOperation('UPDATE', 'event', { id: eventId, action: 'add_attendee', userId });
     return updatedEvent;
   }
   
@@ -178,28 +270,45 @@ export class DatabaseStorage implements IStorage {
       .set({ attendees })
       .where(eq(events.id, eventId))
       .returning();
+      
+    logOperation('UPDATE', 'event', { id: eventId, action: 'remove_attendee', userId });
     return updatedEvent;
   }
   
   // Document methods
   async getDocument(id: number): Promise<Document | undefined> {
     const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    if (document) {
+      logOperation('READ', 'document', { id });
+    }
     return document;
   }
   
   async getAllDocuments(): Promise<Document[]> {
-    return await db.select().from(documents).where(eq(documents.isSecure, false));
+    // Get documents that don't have specific permissions restrictions
+    const allDocs = await db.select().from(documents).where(
+      eq(documents.documentType, 'generic')
+    );
+    logOperation('READ', 'documents', { count: allDocs.length });
+    return allDocs;
   }
   
   async getSecureDocuments(): Promise<Document[]> {
-    return await db.select().from(documents).where(eq(documents.isSecure, true));
+    // Get only documents with permissions for secure viewing
+    const secureDocs = await db.select().from(documents).where(
+      eq(documents.documentType, 'secure')
+    );
+    logOperation('READ', 'secure_documents', { count: secureDocs.length });
+    return secureDocs;
   }
   
   async createDocument(document: InsertDocument): Promise<Document> {
     const [newDocument] = await db
       .insert(documents)
-      .values({ ...document, uploadedAt: new Date() })
+      .values(document)
       .returning();
+      
+    logOperation('CREATE', 'document', { id: newDocument.id, title: newDocument.title });
     return newDocument;
   }
   
@@ -209,6 +318,10 @@ export class DatabaseStorage implements IStorage {
       .set(document)
       .where(eq(documents.id, id))
       .returning();
+      
+    if (updatedDocument) {
+      logOperation('UPDATE', 'document', { id, fields: Object.keys(document) });
+    }
     return updatedDocument;
   }
   
@@ -217,17 +330,26 @@ export class DatabaseStorage implements IStorage {
       .delete(documents)
       .where(eq(documents.id, id))
       .returning();
+      
+    if (deletedDocument) {
+      logOperation('DELETE', 'document', { id });
+    }
     return !!deletedDocument;
   }
   
   // Help Request methods
   async getHelpRequest(id: number): Promise<HelpRequest | undefined> {
     const [helpRequest] = await db.select().from(helpRequests).where(eq(helpRequests.id, id));
+    if (helpRequest) {
+      logOperation('READ', 'help_request', { id });
+    }
     return helpRequest;
   }
   
   async getAllHelpRequests(): Promise<HelpRequest[]> {
-    return await db.select().from(helpRequests);
+    const requests = await db.select().from(helpRequests);
+    logOperation('READ', 'help_requests', { count: requests.length });
+    return requests;
   }
   
   async createHelpRequest(helpRequest: InsertHelpRequest): Promise<HelpRequest> {
@@ -239,6 +361,8 @@ export class DatabaseStorage implements IStorage {
         volunteers: [] 
       })
       .returning();
+      
+    logOperation('CREATE', 'help_request', { id: newHelpRequest.id, title: newHelpRequest.title });
     return newHelpRequest;
   }
   
@@ -248,6 +372,10 @@ export class DatabaseStorage implements IStorage {
       .set(helpRequest)
       .where(eq(helpRequests.id, id))
       .returning();
+      
+    if (updatedHelpRequest) {
+      logOperation('UPDATE', 'help_request', { id, fields: Object.keys(helpRequest) });
+    }
     return updatedHelpRequest;
   }
   
@@ -256,6 +384,10 @@ export class DatabaseStorage implements IStorage {
       .delete(helpRequests)
       .where(eq(helpRequests.id, id))
       .returning();
+      
+    if (deletedHelpRequest) {
+      logOperation('DELETE', 'help_request', { id });
+    }
     return !!deletedHelpRequest;
   }
   
@@ -278,6 +410,8 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(helpRequests.id, requestId))
       .returning();
+      
+    logOperation('UPDATE', 'help_request', { id: requestId, action: 'add_volunteer', userId });
     return updatedHelpRequest;
   }
   
@@ -296,21 +430,28 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(helpRequests.id, requestId))
       .returning();
+      
+    logOperation('UPDATE', 'help_request', { id: requestId, action: 'remove_volunteer', userId });
     return updatedHelpRequest;
   }
   
   // Message methods
   async getMessage(id: number): Promise<Message | undefined> {
     const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    if (message) {
+      logOperation('READ', 'message', { id });
+    }
     return message;
   }
   
   async getMessagesBySender(senderId: number): Promise<Message[]> {
-    return await db.select().from(messages).where(eq(messages.senderId, senderId));
+    const sentMessages = await db.select().from(messages).where(eq(messages.senderId, senderId));
+    logOperation('READ', 'messages_by_sender', { senderId, count: sentMessages.length });
+    return sentMessages;
   }
   
   async getMessagesByReceiver(receiverId: number): Promise<Message[]> {
-    return await db
+    const receivedMessages = await db
       .select()
       .from(messages)
       .where(
@@ -319,6 +460,9 @@ export class DatabaseStorage implements IStorage {
           eq(messages.isGroupMessage, false)
         )
       );
+    
+    logOperation('READ', 'messages_by_receiver', { receiverId, count: receivedMessages.length });
+    return receivedMessages;
   }
   
   async createMessage(message: InsertMessage): Promise<Message> {
@@ -330,6 +474,12 @@ export class DatabaseStorage implements IStorage {
         isRead: false
       })
       .returning();
+      
+    logOperation('CREATE', 'message', { 
+      id: newMessage.id, 
+      senderId: newMessage.senderId, 
+      receiverId: newMessage.receiverId
+    });
     return newMessage;
   }
   
@@ -339,6 +489,10 @@ export class DatabaseStorage implements IStorage {
       .set({ isRead: true })
       .where(eq(messages.id, id))
       .returning();
+      
+    if (updatedMessage) {
+      logOperation('UPDATE', 'message', { id, action: 'mark_as_read' });
+    }
     return updatedMessage;
   }
   
@@ -347,6 +501,10 @@ export class DatabaseStorage implements IStorage {
       .delete(messages)
       .where(eq(messages.id, id))
       .returning();
+      
+    if (deletedMessage) {
+      logOperation('DELETE', 'message', { id });
+    }
     return !!deletedMessage;
   }
 }

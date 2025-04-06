@@ -1,0 +1,100 @@
+Prompt:
+
+> 🚀 I need you to implement PostgreSQL integration for my Family App using Drizzle ORM. Follow these steps precisely:
+
+1. Setup PostgreSQL Connection (server/database.ts):
+
+Create a new file called server/database.ts.
+
+Establish a connection to PostgreSQL using Drizzle ORM.
+
+Make sure to load connection details from a .env file containing:
+
+DATABASE_URL=postgresql://username:password@localhost:5432/family_app
+SECRET_KEY=your-secret-key
+
+Confirm the connection is successful by logging a success message.
+
+
+
+---
+
+2. Replace MemStorage with PostgreSQL (server/storage.ts):
+
+Replace the current MemStorage implementation with PostgreSQL integration via Drizzle ORM.
+
+Ensure all CRUD operations (Create, Read, Update, Delete) interact with PostgreSQL instead of in-memory storage.
+
+Maintain compatibility with existing routes and functionalities.
+
+Log confirmation messages for all operations (CRUD) to verify PostgreSQL connectivity.
+
+
+
+---
+
+3. Define Database Schemas (shared/schema.ts):
+
+Define the following tables using Drizzle ORM’s schema definition syntax:
+
+users: Fields: id, username, email, passwordHash, status, role, is_active, last_login_date, invitation_status.
+
+family_members: Fields: id, user_id, name, relationship, birth_date, metadata.
+
+relationships: Fields: id, source_id, target_id, relationship_type.
+
+documents: Fields: id, user_id, title, content, created_at, permissions.
+
+events: Fields: id, title, description, date, location, user_id.
+
+
+Apply migrations to ensure tables are created in the PostgreSQL database.
+
+Confirm success by logging table creation messages.
+
+
+
+---
+
+4. Create CRUD Endpoints (server/routes.ts):
+
+Create or modify endpoints to support CRUD operations for all the defined tables:
+
+users: Register, login, update profile, delete account.
+
+family_members: Create, read, update, delete members.
+
+relationships: Create, read, update, delete relationships.
+
+documents: Upload, retrieve, update, delete documents.
+
+events: Create, read, update, delete events.
+
+
+Ensure endpoints adhere to RESTful conventions with proper HTTP methods (GET, POST, PUT, DELETE).
+
+Log confirmation messages for each successful operation.
+
+
+
+---
+
+5. Testing & Validation:
+
+Verify that all endpoints are fully functional.
+
+Test CRUD operations for each table using tools like Postman or automated tests.
+
+Confirm database persistence (data remains after server restarts).
+
+Provide logs for each operation tested.
+
+
+
+---
+
+6. Additional Requirements:
+
+Provide detailed logs for every step, including errors and successful completions.
+
+Return a summary of what has been completed and what still needs work.
