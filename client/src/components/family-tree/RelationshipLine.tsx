@@ -7,31 +7,66 @@ interface RelationshipLineProps {
 }
 
 const RelationshipLine = ({ x1, y1, x2, y2, type }: RelationshipLineProps) => {
-  // Get stroke color based on relationship type
-  const getStrokeColor = () => {
+  // Get stroke properties based on relationship type
+  const getStrokeProperties = () => {
     switch (type) {
       case "biological":
-        return "#5AAE61"; // Green
+        return {
+          color: "#5AAE61", // Green
+          dashArray: "none", 
+          width: 3
+        };
       case "adoptive":
-        return "#9B7EDE"; // Purple
+        return {
+          color: "#9B7EDE", // Purple
+          dashArray: "5,5", 
+          width: 3
+        };
       case "step":
-        return "#F2994A"; // Orange
+        return {
+          color: "#F2994A", // Orange
+          dashArray: "10,5", 
+          width: 3
+        };
       default:
-        return "#4A6FA5"; // Default blue
+        return {
+          color: "#4A6FA5", // Default blue
+          dashArray: "none", 
+          width: 3
+        };
     }
   };
 
+  const strokeProps = getStrokeProperties();
+
   return (
-    <line 
-      x1={x1} 
-      y1={y1} 
-      x2={x2} 
-      y2={y2} 
-      className="relationship-line" 
-      stroke={getStrokeColor()}
-      strokeWidth={2}
-      strokeLinecap="round"
-    />
+    <>
+      {/* Background line (shadow effect) */}
+      <line 
+        x1={x1} 
+        y1={y1} 
+        x2={x2} 
+        y2={y2} 
+        className="relationship-line-bg" 
+        stroke="#ffffff"
+        strokeWidth={strokeProps.width + 2}
+        strokeLinecap="round"
+        strokeOpacity={0.6}
+      />
+      
+      {/* Colored relationship line */}
+      <line 
+        x1={x1} 
+        y1={y1} 
+        x2={x2} 
+        y2={y2} 
+        className="relationship-line" 
+        stroke={strokeProps.color}
+        strokeWidth={strokeProps.width}
+        strokeLinecap="round"
+        strokeDasharray={strokeProps.dashArray}
+      />
+    </>
   );
 };
 

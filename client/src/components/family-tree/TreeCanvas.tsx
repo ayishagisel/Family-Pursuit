@@ -25,12 +25,12 @@ const TreeCanvas = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   // Fetch family members
-  const { data: familyMembers = [], isLoading: isMembersLoading } = useQuery({
+  const { data: familyMembers = [], isLoading: isMembersLoading } = useQuery<FamilyMember[]>({
     queryKey: ["/api/family-members"],
   });
 
   // Fetch relationships
-  const { data: relationships = [], isLoading: isRelationshipsLoading } = useQuery({
+  const { data: relationships = [], isLoading: isRelationshipsLoading } = useQuery<Relationship[]>({
     queryKey: ["/api/relationships"],
   });
 
@@ -185,23 +185,23 @@ const TreeCanvas = ({
   }
 
   return (
-    <div className="family-tree-canvas p-6 overflow-x-auto">
+    <div className="family-tree-canvas p-6 overflow-x-auto w-full" style={{ minHeight: '600px' }}>
       <svg 
         ref={svgRef}
         width="100%" 
         height="100%" 
-        viewBox="0 0 1000 500" 
+        viewBox="0 0 1000 600" 
         preserveAspectRatio="xMidYMid meet"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab', minHeight: '500px' }}
       >
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
           {/* Relationship Lines */}
-          {relationships.map((relationship: Relationship) => {
-            const sourceMember = familyMembers.find((m: FamilyMember) => m.id === relationship.source_id);
-            const targetMember = familyMembers.find((m: FamilyMember) => m.id === relationship.target_id);
+          {relationships.map((relationship) => {
+            const sourceMember = familyMembers.find((m) => m.id === relationship.source_id);
+            const targetMember = familyMembers.find((m) => m.id === relationship.target_id);
             
             if (!sourceMember || !targetMember) return null;
             
@@ -221,7 +221,7 @@ const TreeCanvas = ({
           })}
           
           {/* Family Member Nodes */}
-          {familyMembers.map((member: FamilyMember) => {
+          {familyMembers.map((member) => {
             const position = getNodePosition(member);
             const size = getNodeSize(member);
             

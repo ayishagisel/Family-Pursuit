@@ -1,4 +1,5 @@
 import { FamilyMember } from "@shared/schema";
+import { useState } from "react";
 
 interface TreeNodeProps {
   member: FamilyMember;
@@ -10,6 +11,8 @@ interface TreeNodeProps {
 }
 
 const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNodeProps) => {
+  const [imageError, setImageError] = useState(false);
+  
   // Determine color based on relationship type
   const getNodeColor = () => {
     switch (member.relationship) {
@@ -24,6 +27,19 @@ const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNo
     }
   };
 
+  // Generate initials for fallback
+  const getInitials = () => {
+    if (!member.name) return "?";
+    return member.name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
+  const nodeColor = getNodeColor();
+
   return (
     <g 
       className={`tree-node cursor-pointer ${isCurrentUser ? 'pulse-animation' : ''}`}
@@ -33,18 +49,33 @@ const TreeNode = ({ member, x, y, size, onClick, isCurrentUser = false }: TreeNo
       {/* Background circle for node */}
       <circle 
         r={size} 
-        fill={getNodeColor()}
+        fill={nodeColor}
       />
       
-      {/* Avatar image */}
-      <image 
-        href={member.avatarUrl || ""} 
-        x={-size * 0.875} 
-        y={-size * 0.875} 
-        height={size * 1.75} 
-        width={size * 1.75} 
-        clipPath={`circle(${size * 0.875}px at ${size * 0.875}px ${size * 0.875}px)`}
-      />
+      {!imageError ? (
+        // Avatar image
+        <image 
+          href={member.avatarUrl || ""} 
+          x={-size * 0.875} 
+          y={-size * 0.875} 
+          height={size * 1.75} 
+          width={size * 1.75} 
+          clipPath={`circle(${size * 0.875}px at ${size * 0.875}px ${size * 0.875}px)`}
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        // Fallback text with initials when image fails to load
+        <text
+          x="0"
+          y="5"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="font-bold text-xl fill-white"
+          fontSize={size * 0.8}
+        >
+          {getInitials()}
+        </text>
+      )}
       
       {/* White background for name text (better contrast in dark mode) */}
       <rect
