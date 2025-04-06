@@ -7,6 +7,7 @@ import {
   HelpRequest, InsertHelpRequest, helpRequests,
   Message, InsertMessage, messages
 } from "@shared/schema";
+import { DatabaseStorage } from "./storage.db";
 
 export interface IStorage {
   // User methods
@@ -618,4 +619,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Use DatabaseStorage for PostgreSQL
+export const storage = new DatabaseStorage();
