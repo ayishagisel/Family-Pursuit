@@ -1,158 +1,123 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Loader2, AlertCircle, Users } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertTriangle, RefreshCw, BookOpen, LightbulbIcon } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 export function RelationshipAnalysis() {
-  const { toast } = useToast();
-  const [hasRefreshed, setHasRefreshed] = useState(false);
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["/api/analyze/relationships"],
+  // Mutation to generate relationship analysis
+  const generateAnalysis = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("GET", "/api/analyze/relationships");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to generate analysis");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setAnalysis(data.analysis);
+      setError(null);
+    },
+    onError: (error: Error) => {
+      console.error("Error generating analysis:", error);
+      setError(error.message);
+      
+      // Check if error is related to OpenAI API key
+      if (error.message.includes("OpenAI API key")) {
+        setError("Missing or invalid OpenAI API key. Please ask the administrator to configure the API key.");
+      }
+    }
   });
 
-  const handleRefresh = async () => {
-    try {
-      setHasRefreshed(true);
-      toast({
-        title: "Updating analysis",
-        description: "Refreshing the family relationship analysis...",
-      });
-      await refetch();
-      toast({
-        title: "Analysis updated",
-        description: "Family relationship analysis has been refreshed.",
-      });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Refresh failed",
-        description: "Could not refresh the analysis. Please try again later.",
-      });
-    }
-  };
-
-  if (isLoading && !hasRefreshed) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Analyzing Family Relationships</CardTitle>
-          <CardDescription>Generating insights based on your family structure...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center py-6">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Alert variant="destructive" className="w-full">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>
-          Failed to load family analysis. {(error as Error)?.message || "Please try again later."}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Initialize with default values
-  const analysisData = data as { insights: string; recommendations: string } || { insights: "", recommendations: "" };
-  const insights = analysisData?.insights || "";
-  const recommendations = analysisData?.recommendations || "";
-
-  // Determine if we have meaningful content
-  const hasInsights = insights && insights !== "Unable to analyze relationships at this time.";
-  const hasRecommendations = recommendations && recommendations !== "Please try again later.";
-  
   return (
-    <Card className="w-full">
+    <Card className="w-full shadow-md">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5" />
-          Family Relationship Analysis
+          <Users className="h-5 w-5" />
+          <span>Family Relationship Analysis</span>
+          {generateAnalysis.isPending && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </CardTitle>
         <CardDescription>
-          AI-powered insights about your family structure and connections
+          AI-powered insights about your family relationships
         </CardDescription>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <div>
-          <h3 className="text-md font-semibold flex items-center gap-2 mb-2">
-            <BookOpen className="h-4 w-4" />
-            Key Insights
-          </h3>
-          <ScrollArea className="h-[150px] rounded-md border p-4">
-            {hasInsights ? (
-              <div className="space-y-2">
-                {insights.split('\n').map((paragraph: string, index: number) => (
-                  <p key={index} className="text-sm">{paragraph}</p>
-                ))}
-              </div>
-            ) : (
-              <Alert variant="warning">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>No insights available</AlertTitle>
-                <AlertDescription>
-                  We couldn't generate insights for your family relationships at this time.
-                  Try adding more family members and defining their relationships.
-                </AlertDescription>
-              </Alert>
-            )}
-          </ScrollArea>
-        </div>
-        
-        <div>
-          <h3 className="text-md font-semibold flex items-center gap-2 mb-2">
-            <LightbulbIcon className="h-4 w-4" />
-            Recommendations
-          </h3>
-          <ScrollArea className="h-[150px] rounded-md border p-4">
-            {hasRecommendations ? (
-              <div className="space-y-2">
-                {recommendations.split('\n').map((paragraph: string, index: number) => (
-                  <p key={index} className="text-sm">{paragraph}</p>
-                ))}
-              </div>
-            ) : (
-              <Alert variant="warning">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>No recommendations available</AlertTitle>
-                <AlertDescription>
-                  We couldn't generate recommendations for your family relationships.
-                  Try adding more family member details to get personalized recommendations.
-                </AlertDescription>
-              </Alert>
-            )}
-          </ScrollArea>
-        </div>
+      <CardContent>
+        {!analysis && !error && !generateAnalysis.isPending && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <p className="text-muted-foreground text-sm mb-4">
+              Generate an AI analysis of your family structure and relationships
+            </p>
+            <Button 
+              onClick={() => generateAnalysis.mutate()}
+              disabled={generateAnalysis.isPending}
+            >
+              Generate Analysis
+            </Button>
+          </div>
+        )}
+
+        {generateAnalysis.isPending && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-muted-foreground text-sm">Analyzing family relationships...</p>
+          </div>
+        )}
+
+        {error && (
+          <Alert variant="warning">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription className="mt-2">
+              {error}
+              {error.includes("OpenAI API key") && (
+                <div className="mt-4">
+                  <p className="text-sm mb-2">To fix this issue:</p>
+                  <ol className="text-sm list-decimal pl-5 space-y-1">
+                    <li>Ensure the OpenAI API key is properly set in the server environment</li>
+                    <li>The key should start with "sk-" and be added to the .env file</li>
+                    <li>Restart the server after adding the API key</li>
+                  </ol>
+                </div>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => generateAnalysis.mutate()}
+                disabled={generateAnalysis.isPending}
+                className="mt-4"
+              >
+                Try Again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {analysis && !error && (
+          <div className="prose prose-sm max-w-none">
+            <div dangerouslySetInnerHTML={{ 
+              __html: analysis.replace(/\n/g, '<br>') 
+            }} />
+            <div className="mt-4 flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => generateAnalysis.mutate()}
+                disabled={generateAnalysis.isPending}
+              >
+                Refresh Analysis
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
-      
-      <CardFooter className="flex justify-between px-6 py-4 border-t">
-        <Button 
-          variant="outline" 
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="flex items-center gap-2"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          {isLoading ? "Refreshing..." : "Refresh Analysis"}
-        </Button>
-        <div className="text-sm text-muted-foreground">
-          {hasInsights && "Analysis based on current family structure."}
-        </div>
-      </CardFooter>
     </Card>
   );
 }

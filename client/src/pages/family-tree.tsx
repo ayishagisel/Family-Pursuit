@@ -361,7 +361,8 @@ const FamilyTreePage = () => {
         {/* Member Narrative Card */}
         {selectedMember && (
           <MemberNarrative 
-            member={selectedMember} 
+            memberId={selectedMember.id}
+            memberName={selectedMember.name}
           />
         )}
       </div>

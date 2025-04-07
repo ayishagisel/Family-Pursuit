@@ -1,148 +1,131 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FamilyMember } from "@shared/schema";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertTriangle, FileText, Clock } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-
-interface TimelineEvent {
-  date: string;
-  title: string;
-  description?: string;
-}
+import { Button } from "@/components/ui/button";
 
 interface MemberNarrativeProps {
-  member: FamilyMember;
+  memberId: number | null;
+  memberName: string | null;
 }
 
-export function MemberNarrative({ member }: MemberNarrativeProps) {
-  const [activeTab, setActiveTab] = useState("narrative");
+export function MemberNarrative({ memberId, memberName }: MemberNarrativeProps) {
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: [`/api/family-members/${member.id}/narrative`],
-    enabled: !!member.id,
+  // Mutation to generate narrative
+  const generateNarrative = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("GET", `/api/family-members/${id}/narrative`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to generate narrative");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setNarrative(data.narrative);
+      setError(null);
+    },
+    onError: (error: Error) => {
+      console.error("Error generating narrative:", error);
+      setError(error.message);
+      
+      // Check if error is related to OpenAI API key
+      if (error.message.includes("OpenAI API key")) {
+        setError("Missing or invalid OpenAI API key. Please ask the administrator to configure the API key.");
+      }
+    }
   });
 
-  if (isLoading) {
-    return (
-      <Card className="w-full max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>Generating Narrative</CardTitle>
-          <CardDescription>Creating a personalized narrative for {member.name}...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center py-6">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
+  // When selected member changes, fetch their narrative
+  useEffect(() => {
+    if (memberId) {
+      generateNarrative.mutate(memberId);
+    } else {
+      setNarrative(null);
+      setError(null);
+    }
+  }, [memberId]);
+
+  // If no member is selected
+  if (!memberId) {
+    return null;
   }
 
-  if (isError) {
-    return (
-      <Alert variant="destructive" className="w-full max-w-3xl mx-auto">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>
-          Failed to load narrative for {member.name}. {(error as Error)?.message || "Please try again later."}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  // Initialize with default values
-  const narrativeData = data as { narrative: string; timeline: TimelineEvent[] } || { narrative: "", timeline: [] };
-  const narrative = narrativeData.narrative || "";
-  const timeline = narrativeData.timeline || [];
-  
   return (
-    <Card className="w-full max-w-3xl mx-auto">
+    <Card className="w-full shadow-md">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          {member.name}'s Story
+          <span>Personal Narrative</span>
+          {generateNarrative.isPending && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </CardTitle>
         <CardDescription>
-          A personal narrative based on family relationships and available information.
+          AI-generated biography for {memberName}
         </CardDescription>
       </CardHeader>
-      
-      <Tabs defaultValue="narrative" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="px-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="narrative">Narrative</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          </TabsList>
-        </div>
-        
-        <TabsContent value="narrative" className="m-0">
-          <CardContent className="p-6">
-            <ScrollArea className="h-[300px] rounded-md border p-4">
-              {narrative ? (
-                <div className="space-y-4">
-                  {narrative.split('\n\n').map((paragraph: string, index: number) => (
-                    <p key={index}>{paragraph}</p>
-                  ))}
-                </div>
-              ) : (
-                <Alert variant="warning">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>No narrative available</AlertTitle>
-                  <AlertDescription>
-                    We couldn't generate a narrative for {member.name} at this time.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </TabsContent>
-        
-        <TabsContent value="timeline" className="m-0">
-          <CardContent className="p-6">
-            <ScrollArea className="h-[300px] rounded-md border">
-              {timeline && timeline.length > 0 ? (
-                <div className="p-4 space-y-4">
-                  {(timeline as TimelineEvent[]).map((event, index) => (
-                    <div key={index} className="relative pl-6 pb-4 border-l border-muted">
-                      <div className="absolute left-0 top-0 w-2 h-2 rounded-full bg-primary -translate-x-1/2" />
-                      <div className="font-medium">{event.title}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {event.date}
-                      </div>
-                      {event.description && (
-                        <div className="text-sm mt-1">{event.description}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full p-4">
-                  <Alert variant="warning" className="w-full">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>No timeline events</AlertTitle>
-                    <AlertDescription>
-                      We couldn't find any timeline events for {member.name}.
-                    </AlertDescription>
-                  </Alert>
+      <CardContent>
+        {generateNarrative.isPending ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-muted-foreground text-sm">Generating narrative...</p>
+          </div>
+        ) : error ? (
+          <Alert variant="warning">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription className="mt-2">
+              {error}
+              {error.includes("OpenAI API key") && (
+                <div className="mt-4">
+                  <p className="text-sm mb-2">To fix this issue:</p>
+                  <ol className="text-sm list-decimal pl-5 space-y-1">
+                    <li>Ensure the OpenAI API key is properly set in the server environment</li>
+                    <li>The key should start with "sk-" and be added to the .env file</li>
+                    <li>Restart the server after adding the API key</li>
+                  </ol>
                 </div>
               )}
-            </ScrollArea>
-          </CardContent>
-        </TabsContent>
-      </Tabs>
-      
-      <CardFooter className="flex justify-between px-6 py-4 border-t">
-        <Button variant="outline" onClick={() => setActiveTab(activeTab === "narrative" ? "timeline" : "narrative")}>
-          View {activeTab === "narrative" ? "Timeline" : "Narrative"}
-        </Button>
-        <div className="text-sm text-muted-foreground">
-          Last updated: {formatDistanceToNow(new Date(), { addSuffix: true })}
-        </div>
-      </CardFooter>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => memberId && generateNarrative.mutate(memberId)}
+                disabled={generateNarrative.isPending}
+                className="mt-4"
+              >
+                Try Again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : narrative ? (
+          <div className="prose prose-sm max-w-none">
+            <div dangerouslySetInnerHTML={{ 
+              __html: narrative.replace(/\n/g, '<br>') 
+            }} />
+          </div>
+        ) : (
+          <Alert variant="warning">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>No Narrative Available</AlertTitle>
+            <AlertDescription>
+              Unable to generate a narrative for this family member.
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => memberId && generateNarrative.mutate(memberId)}
+                disabled={generateNarrative.isPending}
+                className="mt-4"
+              >
+                Try Again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
     </Card>
   );
 }
