@@ -1,4 +1,4 @@
-import { Search, ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { Search, ZoomIn, ZoomOut, Maximize, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TreeControlsProps {
@@ -6,6 +6,7 @@ interface TreeControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
+  onCreateInfographic?: () => void;
   currentZoom?: number;
 }
 
@@ -14,6 +15,7 @@ const TreeControls = ({
   onZoomIn, 
   onZoomOut, 
   onReset, 
+  onCreateInfographic,
   currentZoom = 1
 }: TreeControlsProps) => {
   return (
@@ -65,6 +67,18 @@ const TreeControls = ({
       >
         <Maximize className="h-4 w-4" />
       </Button>
+
+      {onCreateInfographic && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCreateInfographic}
+          title="Create Infographic"
+          className="h-8 w-8 ml-2"
+        >
+          <FileImage className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 };

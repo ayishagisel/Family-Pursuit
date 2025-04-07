@@ -13,13 +13,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
+import InfographicCreator from "@/components/family-tree/InfographicCreator";
 import MemberNarrative from "@/components/ai/MemberNarrative";
 import RelationshipInsights from "@/components/ai/RelationshipInsights";
 import { FamilyMember, Relationship, insertFamilyMemberSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAIValidation } from "@/hooks/useAIValidation";
-import { Loader2, AlertTriangle, Check, Users, Search, UserX } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Users, Search, UserX, FileImage } from "lucide-react";
 import { z } from "zod";
 
 // Extended zod schema with validation
@@ -43,6 +44,7 @@ const FamilyTreePage = () => {
   const [zoomInTrigger, setZoomInTrigger] = useState(false);
   const [zoomOutTrigger, setZoomOutTrigger] = useState(false);
   const [resetViewTrigger, setResetViewTrigger] = useState(false);
+  const [isInfographicDialogOpen, setIsInfographicDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { validateFamilyMemberData, isValidating, validationResult } = useAIValidation();
@@ -316,6 +318,7 @@ const FamilyTreePage = () => {
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onReset={handleReset}
+            onCreateInfographic={() => setIsInfographicDialogOpen(true)}
             currentZoom={currentZoom}
           />
         </div>
@@ -900,6 +903,16 @@ const FamilyTreePage = () => {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Infographic Creator Dialog */}
+      <Dialog 
+        open={isInfographicDialogOpen} 
+        onOpenChange={setIsInfographicDialogOpen}
+      >
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <InfographicCreator onClose={() => setIsInfographicDialogOpen(false)} />
         </DialogContent>
       </Dialog>
     </>

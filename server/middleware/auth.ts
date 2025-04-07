@@ -10,77 +10,57 @@ declare global {
         id: number;
         username: string;
         email: string;
+        role?: string;
       };
     }
   }
 }
 
 /**
- * Middleware to authenticate requests using JWT tokens
- * @param req Express request
- * @param res Express response
- * @param next Express next function
+ * Authentication middleware for protected routes
+ * Sets req.user if valid token is provided
  */
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
-    // Extract token from authorization header
     const authHeader = req.headers.authorization;
     const token = extractTokenFromHeader(authHeader);
     
     if (!token) {
-      console.log('Authentication failed: No token provided');
-      return res.status(401).json({ message: 'Authentication required' });
+      return res.status(401).json({ 
+        error: 'Authentication token is required' 
+      });
     }
     
-    // Verify token
     const decoded = verifyToken(token);
-    
     if (!decoded) {
-      console.log('Authentication failed: Invalid token');
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ 
+        error: 'Invalid authentication token' 
+      });
     }
     
-    // Fetch user from database to ensure it exists
-    const user = await storage.getUser(decoded.id);
+    // Set the user object in the request
+    req.user = decoded;
     
-    if (!user) {
-      console.log('Authentication failed: User not found', decoded.id);
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    // Attach user to request
-    req.user = {
-      id: user.id,
-      username: user.username,
-      email: user.email
-    };
-    
-    console.log('Authentication successful for user:', user.username);
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    res.status(500).json({ message: 'Authentication error' });
+    res.status(401).json({ 
+      error: 'Authentication failed',
+      message: error.message
+    });
   }
 }
 
 /**
- * Middleware to check if a user has admin role
- * @param req Express request
- * @param res Express response
- * @param next Express next function
+ * Middleware to require admin role
+ * Must be used after authenticate middleware
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) {
-    return res.status(401).json({ message: 'Authentication required' });
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ 
+      error: 'Admin access required' 
+    });
   }
   
-  // Check if user has admin role (would typically check a role field)
-  // For now we'll assume admin is determined by a specific user ID
-  if (req.user.id !== 1) { // Assumes user with ID 1 is admin
-    console.log('Admin access denied for user:', req.user.username);
-    return res.status(403).json({ message: 'Admin access required' });
-  }
-  
-  console.log('Admin access granted for user:', req.user.username);
   next();
 }

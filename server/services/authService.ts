@@ -1,57 +1,10 @@
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { User } from '@shared/schema';
 
-const SECRET_KEY = process.env.SECRET_KEY || 'family-app-jwt-secret-key-12345';
-
-/**
- * Hashes a password using bcrypt
- * @param password Plain text password
- * @returns Hashed password
- */
-export async function hashPassword(password: string): Promise<string> {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(password, salt);
-}
-
-/**
- * Verifies a password against a hash
- * @param plainPassword Plain text password
- * @param hashedPassword Hashed password
- * @returns True if password matches
- */
-export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-  return bcrypt.compare(plainPassword, hashedPassword);
-}
-
-/**
- * Generates a JWT token for a user
- * @param user User object
- * @returns JWT token
- */
-export function generateToken(user: User): string {
-  const payload = {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-  };
-
-  return jwt.sign(payload, SECRET_KEY, { expiresIn: '7d' });
-}
-
-/**
- * Verifies a JWT token
- * @param token JWT token
- * @returns Payload if token is valid, null otherwise
- */
-export function verifyToken(token: string): any {
-  try {
-    return jwt.verify(token, SECRET_KEY);
-  } catch (error) {
-    console.error('JWT verification error:', error);
-    return null;
-  }
-}
+// Configure JWT token settings
+const JWT_SECRET = process.env.JWT_SECRET || 'family-app-jwt-secret-key-12345';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
 
 /**
  * Extracts JWT token from authorization header
@@ -64,4 +17,54 @@ export function extractTokenFromHeader(authHeader: string | undefined): string |
   }
   
   return authHeader.substring(7); // Remove 'Bearer ' prefix
+}
+
+/**
+ * Generates JWT token for a user
+ * @param user The user object to encode in the token
+ * @returns JWT token string
+ */
+export function generateToken(user: User): string {
+  const payload = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role
+  };
+  
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+}
+
+/**
+ * Verifies a JWT token and returns the decoded user data
+ * @param token JWT token to verify
+ * @returns Decoded user data or null if invalid
+ */
+export function verifyToken(token: string): any {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return null;
+  }
+}
+
+/**
+ * Hash a plain text password using bcrypt
+ * @param password Plain text password
+ * @returns Hashed password
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
+}
+
+/**
+ * Verify a password against a stored hash
+ * @param plainPassword Plain text password to check
+ * @param hashedPassword Stored hashed password
+ * @returns Boolean indicating if password is valid
+ */
+export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  return await bcrypt.compare(plainPassword, hashedPassword);
 }
