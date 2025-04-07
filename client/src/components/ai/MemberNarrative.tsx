@@ -2,8 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, BookOpenIcon, RefreshCwIcon } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Loader2, BookOpenIcon, RefreshCwIcon, AlertTriangleIcon } from 'lucide-react';
 
 interface MemberNarrativeProps {
   memberId: number;
@@ -50,10 +49,21 @@ const MemberNarrative: React.FC<MemberNarrativeProps> = ({ memberId, className }
   if (error) {
     return (
       <Card className={`w-full ${className}`}>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground">Could not load family member narrative.</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <BookOpenIcon className="h-5 w-5 text-primary" />
+            <CardTitle>Family Story</CardTitle>
+          </div>
+          <CardDescription>
+            AI-generated narrative based on family connections
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangleIcon className="h-8 w-8 text-amber-500" />
+            <p className="text-sm font-medium text-center">API rate limit reached. The AI narrative feature is currently unavailable.</p>
+            <p className="text-xs text-muted-foreground text-center">This is a temporary limitation that will reset according to your OpenAI usage plan.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
               Try Again
             </Button>
           </div>

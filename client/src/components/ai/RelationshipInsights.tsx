@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, LightbulbIcon, HeartIcon, UsersIcon } from 'lucide-react';
+import { Loader2, LightbulbIcon, HeartIcon, UsersIcon, AlertTriangleIcon } from 'lucide-react';
 
 interface RelationshipInsight {
   summary: string;
@@ -50,10 +50,21 @@ const RelationshipInsights: React.FC<RelationshipInsightsProps> = ({ memberId, c
   if (error) {
     return (
       <Card className={`w-full ${className}`}>
-        <CardContent className="pt-6">
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground">Could not load relationship insights.</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <HeartIcon className="h-5 w-5 text-primary" />
+            <CardTitle>Relationship Insights</CardTitle>
+          </div>
+          <CardDescription>
+            AI-powered analysis of family relationships
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangleIcon className="h-8 w-8 text-amber-500" />
+            <p className="text-sm font-medium text-center">API rate limit reached. The AI analysis feature is currently unavailable.</p>
+            <p className="text-xs text-muted-foreground text-center">This is a temporary limitation that will reset according to your OpenAI usage plan.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
               Try Again
             </Button>
           </div>
