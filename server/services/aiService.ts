@@ -93,9 +93,18 @@ export async function validateFamilyMemberData(memberData: {
 
     const result = JSON.parse(resultText) as ValidationResult;
     return result;
-  } catch (error) {
+  } catch (error: any) { // Type annotation for error
     console.error("AI validation error:", error);
-    // Return a default validation result in case of error
+    
+    // Check for rate limit errors
+    if ((error?.status === 429) || (error?.error?.type === 'insufficient_quota')) {
+      return {
+        isValid: true, // Default to true to allow submission despite API limits
+        issues: ["AI validation is currently unavailable due to API rate limits."],
+      };
+    }
+    
+    // Return a default validation result for other errors
     return {
       isValid: true, // We default to true to avoid blocking submissions on API failure
       issues: ["Unable to perform AI validation"],
@@ -191,9 +200,26 @@ export async function analyzeRelationships(
 
     const result = JSON.parse(resultText) as RelationshipInsight;
     return result;
-  } catch (error) {
+  } catch (error: any) { // Type annotation for error
     console.error("AI relationship analysis error:", error);
-    // Return a default insight in case of error
+    
+    // Check for rate limit errors
+    if ((error?.status === 429) || (error?.error?.type === 'insufficient_quota')) {
+      return {
+        summary: "API rate limit reached. The AI analysis feature is currently unavailable.",
+        keyPoints: [
+          "OpenAI API quota has been reached or rate limit exceeded.",
+          "This is a temporary limitation that will reset according to your usage plan."
+        ],
+        suggestions: [
+          "Try again in a few minutes.",
+          "Consider upgrading your OpenAI API plan for higher limits.",
+          "Continue to use the application's other features while this service is unavailable."
+        ]
+      };
+    }
+    
+    // Return a default insight for other errors
     return {
       summary: "Unable to analyze relationships due to a technical issue.",
       keyPoints: ["AI analysis service is currently unavailable."],
@@ -276,9 +302,15 @@ export async function generateFamilyMemberNarrative(
     }
 
     return narrative;
-  } catch (error) {
+  } catch (error: any) { // Type annotation for error
     console.error("AI narrative generation error:", error);
-    // Return a generic narrative in case of error
+    
+    // Check for rate limit errors
+    if ((error?.status === 429) || (error?.error?.type === 'insufficient_quota')) {
+      return `${member.name} is a ${member.role} in the family. The AI-generated narrative is currently unavailable due to API usage limits. Please try again later when the quota resets.`;
+    }
+    
+    // Return a generic narrative for other errors
     return `${member.name} is a ${member.role} in the family. Additional details and a personalized narrative are currently unavailable due to a technical issue.`;
   }
 }
