@@ -2,12 +2,18 @@
 
 A private family social network that leverages AI and interactive visualization to help families connect, preserve memories, and understand their genealogical relationships.
 
-## Latest Updates
-- Implemented PostgreSQL integration with Drizzle ORM for persistent data storage
-- Enhanced family tree visualization with improved responsiveness and unique colors
-- Added JWT authentication system with bcrypt password hashing
-- Created CSV data import utilities for bulk data loading
-- Added automated testing for API endpoints and authentication
+<!-- ![Family Tree Interface](screenshots/family-tree.png) -->
+<!-- Screenshot will be added in the future -->
+
+## Latest Updates (April 2025)
+- ✅ Integrated PostgreSQL database with Drizzle ORM for robust data persistence
+- ✅ Implemented complete authentication system with JWT tokens and password hashing
+- ✅ Enhanced family tree visualization with dynamic zooming and relationship mapping
+- ✅ Created secure document storage with permission controls
+- ✅ Added event management with attendance tracking
+- ✅ Built help request coordination system for family assistance
+- ✅ Integrated AI-powered data validation for family relationships
+- ✅ Developed comprehensive frontend components with responsive design
 
 ## Project Overview
 
@@ -36,34 +42,13 @@ The Pursuit Family App is designed to help families maintain connections and pre
   - Intelligent suggestions for inconsistent relationship information
   - Real-time feedback during member addition/editing
 
-- **Advanced Search Functionality**: 
-  - Find family members by name or role
-  - Instant results with focused navigation to selected members
-  - Searchable relationships and connections
+- **Authentication System**:
+  - Secure user registration and login
+  - Role-based access control (admin, user)
+  - JWT token authentication
+  - Password hashing with bcrypt
 
-- **Relationship Insights**: 
-  - Detailed view of connections between members
-  - Visualization of relationship paths
-  - Support for complex relationship types
-
-- **Authentication & Authorization**:
-  - User authentication with JWT tokens
-  - Secure password hashing with bcrypt
-  - Role-based access controls for sensitive information
-
-- **Database Integration**:
-  - PostgreSQL database for persistent data storage
-  - Drizzle ORM for type-safe database operations
-  - Schema migrations and data seeding
-
-- **CSV Data Import**:
-  - Bulk import of family members, relationships, and events
-  - Data validation and transformation
-  - Customizable import process
-
-### Planned Features
-
-- **Event Planning**: 
+- **Event Management**: 
   - Calendar for family events
   - RSVP tracking and notifications
   - Recurring event management
@@ -71,7 +56,7 @@ The Pursuit Family App is designed to help families maintain connections and pre
 - **Document Sharing**: 
   - Secure storage for important family documents
   - Role-based access controls
-  - AI-powered document redaction for sensitive information
+  - Document categorization and tagging
   
 - **Help Requests**: 
   - Coordination system for family assistance
@@ -81,7 +66,7 @@ The Pursuit Family App is designed to help families maintain connections and pre
 - **Private Messaging**: 
   - Secure communication between family members
   - Group chat capabilities
-  - Media sharing options
+  - Read receipt tracking
 
 ## Technology Stack
 
@@ -94,11 +79,10 @@ The Pursuit Family App is designed to help families maintain connections and pre
 - **Backend**: 
   - Express.js with RESTful API
   - PostgreSQL database with Drizzle ORM
-  - JWT authentication
   - TypeScript for type safety
   
 - **State Management**: 
-  - TanStack Query (React Query) for data fetching
+  - TanStack Query for data fetching
   - React Context for global state
   
 - **Form Handling**: 
@@ -112,11 +96,6 @@ The Pursuit Family App is designed to help families maintain connections and pre
 - **Data Visualization**:
   - Custom SVG-based family tree rendering
   - Interactive zoom/pan capabilities
-
-- **Testing**:
-  - Jest for unit and integration testing
-  - Supertest for API endpoint testing
-  - Mocked dependencies for isolated testing
 
 ## Getting Started
 
@@ -139,14 +118,14 @@ The Pursuit Family App is designed to help families maintain connections and pre
    npm install
    ```
 
-3. Create a `.env` file in the root directory and add your environment variables:
+3. Create a `.env` file in the root directory with the following variables:
    ```
-   DATABASE_URL=postgresql://username:password@localhost:5432/family_app
    OPENAI_API_KEY=your-api-key-here
-   JWT_SECRET=your-jwt-secret-key
+   DATABASE_URL=postgresql://username:password@localhost:5432/family_app
+   JWT_SECRET=your-secret-key-for-jwt
    ```
 
-4. Run database migrations:
+4. Set up the database:
    ```bash
    npm run db:push
    ```
@@ -158,24 +137,12 @@ The Pursuit Family App is designed to help families maintain connections and pre
 
 6. Open your browser to `http://localhost:5000` to view the application
 
-### Running Tests
-
-Run the tests using the provided script:
-```bash
-node scripts/run-tests.js
-```
-
-For coverage report:
-```bash
-node scripts/run-tests.js --coverage
-```
-
-For watch mode during development:
-```bash
-node scripts/run-tests.js --watch
-```
-
 ## Usage
+
+### Authentication
+- Register a new account with username, email, and password
+- Log in with your credentials
+- Admin users have access to additional management features
 
 ### Family Tree
 - Navigate to the Family Tree page to view your complete family structure
@@ -186,24 +153,28 @@ node scripts/run-tests.js --watch
 - Zoom in/out and pan around the tree using the controls or mouse/touch gestures
 - Use "View Relations" to see detailed relationship connections
 
-### Events (Coming Soon)
+### Events
 - View and create family events in a calendar interface
 - Schedule recurring events like birthdays and anniversaries
 - Send invitations and track attendance
+- Set reminders for upcoming events
 
-### Documents (Coming Soon)
+### Documents
 - Securely upload and share important family documents
+- Categorize documents by type (legal, medical, financial, memories)
 - Control access with permission settings
 - Search document contents with AI-assisted organization
 
-### Help Needed (Coming Soon)
+### Help Needed
 - Post requests for assistance from family members
 - Volunteer to help with specific tasks
 - Schedule and coordinate family support
+- Track completion status of help requests
 
-### Messages (Coming Soon)
+### Messages
 - Send private messages to individual family members
 - Create group conversations for specific topics
+- Track read status of messages
 - Share photos and media through the messaging system
 
 ## Development
@@ -213,44 +184,100 @@ node scripts/run-tests.js --watch
 ├── client/               # React frontend
 │   ├── src/
 │   │   ├── components/   # Reusable UI components
+│   │   ├── contexts/     # React context providers
 │   │   ├── hooks/        # Custom React hooks
 │   │   ├── lib/          # Utility functions and API clients
 │   │   ├── pages/        # Page components for each route
 │   │   └── App.tsx       # Main application component
 ├── server/               # Express backend
-│   ├── middleware/       # Express middleware including authentication
+│   ├── middleware/       # Express middlewares (auth, validation)
 │   ├── services/         # Backend services including AI validation
-│   ├── scripts/          # Utility scripts for data import and migration
-│   ├── tests/            # Test files for API and services
 │   ├── routes.ts         # API route definitions
 │   ├── storage.ts        # Data storage interface
-│   ├── db.ts             # Database connection setup
-│   └── storage.db.ts     # Database storage implementation
-├── shared/               # Shared code between client and server
-│   └── schema.ts         # Database schema and type definitions
-└── data/                 # Sample CSV data for import
-    ├── family_members.csv
-    ├── relationships.csv
-    ├── events.csv
-    └── documents.csv
+│   └── db.ts             # Database connection and configuration
+└── shared/               # Shared code between client and server
+    └── schema.ts         # Database schema and type definitions
 ```
 
-### Future Development
+### Database Schema
 
-1. **WebSocket Integration**: 
-   - Real-time updates and notifications
-   - Live chat functionality
-   - Collaborative family tree editing
+The application uses a PostgreSQL database with the following main tables:
 
-2. **Mobile Application**:
-   - React Native version for mobile platforms
-   - Offline capabilities
-   - Push notifications
+- **users**: Authentication and user management
+- **family_members**: Core family member information
+- **relationships**: Connections between family members
+- **events**: Family gatherings and important dates
+- **documents**: Shared family files and records
+- **help_requests**: Family assistance coordination
+- **messages**: Private communication between members
 
-3. **AI Enhancements**:
-   - Family relationship analysis and suggestions
-   - Historical event detection and timeline generation
-   - Document classification and information extraction
+## AI Integration
+
+The Pursuit Family App leverages OpenAI's GPT-4o model to enhance the user experience in multiple ways:
+
+### Current AI Features
+
+1. **Data Validation**
+   - When adding or editing family members, the application validates the entered data for consistency
+   - The AI checks if names, roles, and relationships make logical sense in a family context
+   - Real-time warnings are displayed if potential issues are detected
+   - Intelligent suggestions are provided to correct problematic entries
+
+2. **Relationship Insights**
+   - The application uses AI to analyze the complex web of family relationships
+   - When viewing relationship details, the AI helps interpret the connections between members
+
+### AI Implementation
+
+The application connects to OpenAI's API using a secure API key stored in environment variables. The integration follows these principles:
+
+- **Privacy First**: All data sent to OpenAI is anonymized and minimized
+- **Graceful Fallbacks**: If AI validation is unavailable, the application continues to function
+- **Transparent Suggestions**: AI recommendations are clearly marked and presented as suggestions
+- **User Control**: Users can always override AI recommendations
+
+## Accessibility & Responsive Design
+
+The Pursuit Family App is designed to be accessible and usable across different devices and for users with various needs:
+
+### Responsive Design
+
+- **Mobile-First Approach**: The interface adapts seamlessly to different screen sizes
+- **Touch-Friendly Controls**: All interactive elements work with both mouse and touch input
+- **Adaptive Layouts**: Component sizing and positioning adjusts based on available space
+- **Zoom Controls**: Custom zoom functionality for the family tree on smaller screens
+
+### Accessibility Features
+
+- **Keyboard Navigation**: All features are accessible via keyboard controls
+- **Screen Reader Support**: Semantic HTML and ARIA attributes for assistive technologies
+- **Color Contrast**: Careful color selection meeting WCAG standards
+- **Focus Indicators**: Clear visual indicators for focused elements
+- **Dark Mode**: Reduced eye strain in low-light environments
+- **Error Announcements**: Clear notifications for validation issues
+
+## Security Considerations
+
+The application implements several security measures to protect sensitive family data:
+
+- **Authentication**: Secure JWT-based authentication system
+- **Password Security**: Bcrypt hashing with salt rounds for password storage
+- **Authorization**: Role-based access control for sensitive operations
+- **Data Protection**: Input validation and sanitization to prevent injection attacks
+- **Secure Documents**: Permission-based access to sensitive family documents
+- **API Security**: Protected endpoints with proper authentication checking
+
+## Contributing
+
+Contributions to improve the Pursuit Family App are welcome! Here's how you can contribute:
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please make sure to update tests as appropriate and ensure your code follows the project's coding standards.
 
 ## License
 
@@ -264,5 +291,3 @@ node scripts/run-tests.js --watch
 - [TanStack Query](https://tanstack.com/query/v5/) for data fetching and state management
 - [React Hook Form](https://react-hook-form.com/) for form handling
 - [Tailwind CSS](https://tailwindcss.com/) for styling
-- [PostgreSQL](https://www.postgresql.org/) for database services
-- [Jest](https://jestjs.io/) for testing framework

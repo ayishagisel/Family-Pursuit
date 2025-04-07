@@ -41,6 +41,8 @@ export const familyMembers = pgTable("family_members", {
   relationship: text("relationship").notNull(), // "biological", "adoptive", "step"
   avatarUrl: text("avatar_url"),
   birth_date: timestamp("birth_date"),
+  location: text("location"),
+  bio: text("bio"),
   metadata: jsonb("metadata").default("{}"),
 });
 
@@ -51,6 +53,8 @@ export const insertFamilyMemberSchema = createInsertSchema(familyMembers).pick({
   relationship: true,
   avatarUrl: true,
   birth_date: true,
+  location: true,
+  bio: true,
   metadata: true,
 });
 
@@ -63,12 +67,14 @@ export const relationships = pgTable("relationships", {
   source_id: integer("source_id").notNull(),
   target_id: integer("target_id").notNull(),
   relationship_type: text("relationship_type").notNull(), // "biological", "adoptive", "step"
+  notes: text("notes"),
 });
 
 export const insertRelationshipSchema = createInsertSchema(relationships).pick({
   source_id: true,
   target_id: true,
   relationship_type: true,
+  notes: true,
 });
 
 export type InsertRelationship = z.infer<typeof insertRelationshipSchema>;

@@ -13,6 +13,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
+import MemberNarrative from "@/components/ai/MemberNarrative";
+import RelationshipInsights from "@/components/ai/RelationshipInsights";
 import { FamilyMember, Relationship, insertFamilyMemberSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -345,6 +347,21 @@ const FamilyTreePage = () => {
             <i className="fas fa-pen mr-1"></i> Edit Relationships
           </button>
         </div>
+      </div>
+      
+      {/* AI Insights Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Relationship Insights Card */}
+        <RelationshipInsights 
+          memberId={selectedMember?.id} 
+          className="h-full"
+        />
+        
+        {/* Member Narrative Card */}
+        <MemberNarrative 
+          memberId={selectedMember?.id || 0} 
+          className="h-full"
+        />
       </div>
       
       {/* Member Detail Dialog */}

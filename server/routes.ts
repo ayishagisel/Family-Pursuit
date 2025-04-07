@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { format } from "date-fns";
-import { validateFamilyMemberData } from "./services/aiService";
+import { validateFamilyMemberData, analyzeRelationships, generateFamilyMemberNarrative } from "./services/aiService";
 import { hashPassword, verifyPassword, generateToken } from "./services/authService";
 import { authenticate, requireAdmin } from "./middleware/auth";
 
@@ -576,6 +576,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error marking message as read:", error);
       res.status(500).json({ message: "Failed to mark message as read" });
+    }
+  });
+
+  // AI Analysis APIs
+  
+  // Analyze family relationships for insights
+  app.get("/api/analyze/relationships", async (req: Request, res: Response) => {
+    try {
+      const familyMembers = await storage.getAllFamilyMembers();
+      const relationships = await storage.getAllRelationships();
+      
+      const focusMemberId = req.query.memberId ? Number(req.query.memberId) : undefined;
+      const insights = await analyzeRelationships(familyMembers, relationships, focusMemberId);
+      
+      res.json(insights);
+    } catch (error) {
+      console.error("Error analyzing relationships:", error);
+      res.status(500).json({
+        summary: "Error analyzing relationships",
+        keyPoints: ["An error occurred while analyzing the family relationships."],
+        suggestions: ["Try again later or contact support if the issue persists."]
+      });
+    }
+  });
+  
+  // Generate narrative for a specific family member
+  app.get("/api/family-members/:id/narrative", async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      const member = await storage.getFamilyMember(memberId);
+      
+      if (!member) {
+        return res.status(404).json({ error: "Family member not found" });
+      }
+      
+      const relationships = await storage.getRelationshipsByMember(memberId);
+      const allMembers = await storage.getAllFamilyMembers();
+      
+      // Filter to only related members
+      const relatedMemberIds = relationships.flatMap(rel => 
+        [rel.source_id, rel.target_id].filter(id => id !== memberId)
+      );
+      const relatedMembers = allMembers.filter(m => relatedMemberIds.includes(m.id));
+      
+      const narrative = await generateFamilyMemberNarrative(member, relationships, relatedMembers);
+      res.json({ narrative });
+    } catch (error) {
+      console.error("Error generating family member narrative:", error);
+      res.status(500).json({ 
+        error: "Failed to generate narrative",
+        message: "An error occurred while generating the family member narrative."
+      });
     }
   });
 

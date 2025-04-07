@@ -78,7 +78,8 @@ async function migrate() {
           id SERIAL PRIMARY KEY,
           source_id INTEGER NOT NULL,
           target_id INTEGER NOT NULL,
-          relationship_type TEXT NOT NULL
+          relationship_type TEXT NOT NULL,
+          notes TEXT
         );
       `);
       console.log('✅ Relationships table created successfully');

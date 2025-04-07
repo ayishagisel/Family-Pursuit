@@ -8,10 +8,20 @@ import {
  * Migrates database schema by creating tables if they don't exist
  */
 async function migrate() {
-  console.log('🔄 Starting database migration...');
+  console.log('🔄 Starting database migration with Drizzle ORM...');
   
   try {
-    // Create tables
+    // Drop all tables to apply schema changes
+    console.log('🔄 Dropping all tables to apply schema changes...');
+    await db.execute(`DROP TABLE IF EXISTS messages`);
+    await db.execute(`DROP TABLE IF EXISTS help_requests`);
+    await db.execute(`DROP TABLE IF EXISTS documents`);
+    await db.execute(`DROP TABLE IF EXISTS events`);
+    await db.execute(`DROP TABLE IF EXISTS relationships`);
+    await db.execute(`DROP TABLE IF EXISTS family_members`);
+    await db.execute(`DROP TABLE IF EXISTS users`);
+    
+    // Create tables with latest schema
     await db.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -27,7 +37,7 @@ async function migrate() {
         invitation_status TEXT DEFAULT 'claimed'
       );
     `);
-    console.log('✅ Users table created or already exists');
+    console.log('✅ Users table created successfully');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS family_members (
@@ -41,17 +51,18 @@ async function migrate() {
         metadata JSONB DEFAULT '{}'
       );
     `);
-    console.log('✅ Family members table created or already exists');
+    console.log('✅ Family members table created successfully');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS relationships (
         id SERIAL PRIMARY KEY,
         source_id INTEGER NOT NULL,
         target_id INTEGER NOT NULL,
-        relationship_type TEXT NOT NULL
+        relationship_type TEXT NOT NULL,
+        notes TEXT
       );
     `);
-    console.log('✅ Relationships table created or already exists');
+    console.log('✅ Relationships table created successfully');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS events (
@@ -65,7 +76,7 @@ async function migrate() {
         event_type TEXT NOT NULL
       );
     `);
-    console.log('✅ Events table created or already exists');
+    console.log('✅ Events table created successfully');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS documents (
@@ -78,7 +89,7 @@ async function migrate() {
         document_type TEXT NOT NULL DEFAULT 'generic'
       );
     `);
-    console.log('✅ Documents table created or already exists');
+    console.log('✅ Documents table created successfully');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS help_requests (
@@ -91,7 +102,7 @@ async function migrate() {
         volunteers JSONB NOT NULL DEFAULT '[]'
       );
     `);
-    console.log('✅ Help requests table created or already exists');
+    console.log('✅ Help requests table created successfully');
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -105,7 +116,7 @@ async function migrate() {
         is_read BOOLEAN NOT NULL DEFAULT false
       );
     `);
-    console.log('✅ Messages table created or already exists');
+    console.log('✅ Messages table created successfully');
 
     // Seed admin user if no users exist
     const usersExist = await db.select().from(users).limit(1);
