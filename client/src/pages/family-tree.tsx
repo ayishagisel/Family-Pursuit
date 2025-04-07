@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
 import InfographicCreator from "@/components/family-tree/InfographicCreator";
+import GenerationalTimeline from "@/components/family-tree/GenerationalTimeline";
 import MemberNarrative from "@/components/ai/MemberNarrative";
 import RelationshipInsights from "@/components/ai/RelationshipInsights";
 import { FamilyMember, Relationship, insertFamilyMemberSchema } from "@shared/schema";
@@ -364,6 +365,15 @@ const FamilyTreePage = () => {
         <MemberNarrative 
           memberId={selectedMember?.id || 0} 
           className="h-full"
+        />
+      </div>
+      
+      {/* Generational Timeline Section */}
+      <div className="mb-6">
+        <GenerationalTimeline
+          familyMembers={familyMembers as FamilyMember[]}
+          relationships={allRelationships as Relationship[]}
+          onSelectMember={handleNodeClick}
         />
       </div>
       
