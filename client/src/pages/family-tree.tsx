@@ -912,6 +912,10 @@ const FamilyTreePage = () => {
         onOpenChange={setIsInfographicDialogOpen}
       >
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Family Tree Infographic Creator</DialogTitle>
+            <DialogDescription className="sr-only">Create and download a visual representation of your family tree</DialogDescription>
+          </DialogHeader>
           <InfographicCreator onClose={() => setIsInfographicDialogOpen(false)} />
         </DialogContent>
       </Dialog>
