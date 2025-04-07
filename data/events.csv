@@ -1,0 +1,6 @@
+title,description,date,location,user_id,attendees,event_type
+Family Reunion,Annual family gathering,2025-07-15,Central Park,1,"[1,2,3,4,5]",reunion
+Birthday Party,Emma's birthday celebration,2025-05-10,Home,1,"[1,2,3,4]",birthday
+Graduation Ceremony,Michael's graduation,2025-06-20,School Auditorium,1,"[1,2,3,4]",graduation
+Holiday Dinner,Christmas dinner,2025-12-25,Grandparents' Home,1,"[1,2,3,4,5,6,7,8,9]",holiday
+Team Building,Family team building,2025-08-01,Adventure Park,1,"[1,2,3,4,5,6,7,8,9]",activity

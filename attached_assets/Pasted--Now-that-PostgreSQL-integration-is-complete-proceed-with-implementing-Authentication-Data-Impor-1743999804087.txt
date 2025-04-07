@@ -1,0 +1,75 @@
+🚀 Now that PostgreSQL integration is complete, proceed with implementing Authentication, Data Import, and Testing as follows:
+
+1. Implement JWT Authentication (server/routes.ts & server/storage.ts):
+Add JWT-based authentication for user login, registration, and protected routes.
+
+Create new endpoints for:
+
+/register: Accepts username, email, password. Stores user data with a hashed password using bcrypt.
+
+/login: Accepts email, password. Verifies credentials and returns a JWT token upon successful authentication.
+
+/protected: Validates incoming JWT tokens to confirm authorized access.
+
+Add middleware to verify JWT tokens before granting access to protected endpoints.
+
+Store JWT secret key in .env as:
+
+plaintext
+Copy
+Edit
+SECRET_KEY=your-secret-key
+Log successful authentications and JWT verification attempts.
+
+2. Import CSV Data into PostgreSQL:
+Write scripts to import relevant CSV datasets into PostgreSQL using Drizzle ORM.
+
+Datasets to import:
+
+Family Members (names, relationships, roles).
+
+Users (authentication data for account creation).
+
+Relationships (existing connections between family members).
+
+Events (important dates and descriptions).
+
+Documents (historical documents with metadata).
+
+Ensure data is properly structured according to schema definitions in shared/schema.ts.
+
+Provide logging for successful imports and error messages for invalid entries.
+
+Store import scripts in a new directory: server/scripts/.
+
+Confirm imported data is accessible via CRUD endpoints.
+
+3. Implement Testing & Validation (server/tests/):
+Write automated tests for the following:
+
+Unit Tests: Database models, JWT validation, API endpoint handling.
+
+Integration Tests: API endpoints interacting with PostgreSQL (CRUD operations, JWT authentication).
+
+End-to-End Tests: User flows from login to data retrieval (registration, login, protected routes, document upload/retrieval).
+
+Ensure tests cover:
+
+Valid and invalid inputs for all endpoints.
+
+Unauthorized access attempts (invalid or missing JWTs).
+
+Data persistence between server restarts.
+
+Store all tests in a new directory: server/tests/.
+
+Log testing results, including pass/fail metrics and errors.
+
+4. Additional Requirements:
+Provide detailed logs for each stage, including successful operations and any errors encountered.
+
+Return a summary of completed tasks and what remains to be done.
+
+Indicate the estimated time for any remaining tasks.
+
+📌 Reminder: This phase focuses on implementing authentication, importing CSV data into PostgreSQL, and setting up a robust testing suite. Ensure compatibility with the previously implemented PostgreSQL integration.

@@ -1,0 +1,6 @@
+content,sender_id,receiver_id,is_group_message,group_id,sent_at,is_read
+Hello family! How is everyone doing?,1,2,false,,2025-03-15T10:00:00Z,true
+I'm doing well! How about you?,2,1,false,,2025-03-15T10:15:00Z,true
+Just checking in. Let me know if you need anything.,1,3,false,,2025-03-16T09:00:00Z,false
+Don't forget about the family dinner tonight!,1,,true,1,2025-03-17T14:00:00Z,false
+Thanks for organizing the event!,3,1,false,,2025-03-18T08:30:00Z,true

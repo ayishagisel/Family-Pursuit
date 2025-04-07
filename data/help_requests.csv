@@ -1,0 +1,6 @@
+title,description,requested_by,date_needed,status,volunteers
+Babysitting,Need someone to babysit the kids on Friday night,1,2025-04-10,needs_volunteer,"[]"
+Grocery Shopping,Need help with grocery shopping for elderly parents,2,2025-04-15,has_volunteers,"[1,3]"
+House Maintenance,Help needed with fixing the fence,1,2025-04-20,needs_volunteer,"[]"
+Transportation,Need ride to medical appointment,4,2025-04-25,completed,"[1,2]"
+Moving Assistance,Help needed with moving furniture,3,2025-05-01,has_volunteers,"[1,5]"

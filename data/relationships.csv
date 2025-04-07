@@ -1,0 +1,11 @@
+source_id,target_id,relationship_type
+1,2,biological
+1,3,biological
+1,4,biological
+2,3,biological
+2,4,biological
+5,7,biological
+5,8,biological
+6,7,biological
+6,8,biological
+5,1,step

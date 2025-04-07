@@ -1,0 +1,6 @@
+username,password,name,email,role,avatar_url,status,is_active,invitation_status
+admin,password123,Admin User,admin@familyapp.com,admin,,active,true,claimed
+user1,password123,Regular User,user1@familyapp.com,member,,active,true,claimed
+user2,password123,Family Member,user2@familyapp.com,member,,active,true,claimed
+grandma,password123,Grandma Smith,grandma@familyapp.com,member,,active,true,claimed
+grandpa,password123,Grandpa Smith,grandpa@familyapp.com,member,,active,true,claimed

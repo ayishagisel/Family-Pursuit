@@ -1,0 +1,6 @@
+title,content,user_id,created_at,permissions,document_type
+Family History,Documentation of family history and ancestry,1,2025-03-15,"{\"read\":[1,2,3,4,5,6,7,8,9],\"write\":[1,2]}",text
+Medical Records,Family medical history and records,1,2025-03-20,"{\"read\":[1,2],\"write\":[1]}",medical
+Home Ownership,Home ownership documents and mortgage details,1,2025-03-25,"{\"read\":[1,2],\"write\":[1]}",legal
+Insurance Policies,Family insurance policies and details,1,2025-03-30,"{\"read\":[1,2],\"write\":[1]}",legal
+Will and Testament,Last will and testament,1,2025-04-05,"{\"read\":[1,2],\"write\":[1]}",legal

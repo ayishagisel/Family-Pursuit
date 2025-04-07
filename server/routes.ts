@@ -13,8 +13,132 @@ import {
 import { z } from "zod";
 import { format } from "date-fns";
 import { validateFamilyMemberData } from "./services/aiService";
+import { hashPassword, verifyPassword, generateToken } from "./services/authService";
+import { authenticate, requireAdmin } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication API
+  
+  // Register new user
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const { username, password, email, name } = req.body;
+      
+      if (!username || !password || !email || !name) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ message: "Username already exists" });
+      }
+      
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+      
+      // Create user
+      const newUser = await storage.createUser({
+        username,
+        password: hashedPassword,
+        email,
+        name,
+        role: "member",
+        is_active: true,
+      });
+      
+      // Generate token
+      const token = generateToken(newUser);
+      
+      console.log(`User registered successfully: ${username}`);
+      
+      // Return user data without password and token
+      const { password: _, ...userWithoutPassword } = newUser;
+      res.status(201).json({
+        message: "User registered successfully",
+        user: userWithoutPassword,
+        token
+      });
+    } catch (error) {
+      console.error("Error registering user:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+  
+  // Login user
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Missing credentials" });
+      }
+      
+      // Find user
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Verify password
+      const passwordValid = await verifyPassword(password, user.password);
+      if (!passwordValid) {
+        console.log(`Failed login attempt for user: ${username}`);
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Generate token
+      const token = generateToken(user);
+      
+      // Update last login
+      // No storage implementation for this yet, but could be added
+      
+      console.log(`User logged in successfully: ${username}`);
+      
+      // Return user data without password and token
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({
+        message: "Login successful",
+        user: userWithoutPassword,
+        token
+      });
+    } catch (error) {
+      console.error("Error logging in:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+  
+  // Get current user (protected route)
+  app.get("/api/auth/me", authenticate, async (req: Request, res: Response) => {
+    try {
+      // User is attached to request by authenticate middleware
+      const user = await storage.getUser(req.user!.id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user data without password
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      res.status(500).json({ message: "Failed to fetch user data" });
+    }
+  });
+  
+  // Administrative route example (protected + admin only)
+  app.get("/api/admin/users", authenticate, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      // This would be a call to get all users, not implemented yet
+      // const users = await storage.getAllUsers();
+      res.json({ message: "Admin access successful" });
+    } catch (error) {
+      console.error("Error in admin route:", error);
+      res.status(500).json({ message: "Failed to process admin request" });
+    }
+  });
+  
   // AI Validation API
   app.post("/api/validate/family-member", async (req: Request, res: Response) => {
     try {
