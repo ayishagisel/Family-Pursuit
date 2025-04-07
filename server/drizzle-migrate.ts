@@ -144,10 +144,18 @@ async function migrate() {
     // Seed admin user if no users exist
     try {
       const usersExist = await db.select().from(users).limit(1);
+      
       if (usersExist.length === 0) {
+        // Import bcrypt for password hashing
+        const bcrypt = await import('bcryptjs');
+        
+        // Hash the password
+        const salt = await bcrypt.default.genSalt(10);
+        const hashedPassword = await bcrypt.default.hash('admin123', salt);
+        
         const adminUser = {
           username: "admin",
-          password: "admin123", // In a real app, this would be hashed
+          password: hashedPassword,
           name: "Admin User",
           email: "admin@example.com",
           role: "admin",
@@ -158,7 +166,7 @@ async function migrate() {
         };
         
         await db.insert(users).values(adminUser);
-        console.log('✅ Admin user created');
+        console.log('✅ Admin user created with hashed password');
       } else {
         console.log('✅ Admin user already exists');
       }
