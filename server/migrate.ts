@@ -110,9 +110,15 @@ async function migrate() {
     // Seed admin user if no users exist
     const usersExist = await db.select().from(users).limit(1);
     if (usersExist.length === 0) {
+      // Import the hashing function from authService
+      const { hashPassword } = await import('./services/authService');
+      
+      // Hash the password for secure storage
+      const hashedPassword = await hashPassword('password123');
+      
       const adminUser = {
         username: "admin",
-        password: "admin123", // In a real app, this would be hashed
+        password: hashedPassword,
         name: "Admin User",
         email: "admin@example.com",
         role: "admin",
@@ -123,7 +129,9 @@ async function migrate() {
       };
       
       await db.insert(users).values(adminUser);
-      console.log('✅ Admin user created');
+      console.log('✅ Admin user created with hashed password');
+    } else {
+      console.log('✅ Admin user already exists');
     }
 
     console.log('✅ Database migration completed successfully');
