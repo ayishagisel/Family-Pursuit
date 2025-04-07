@@ -66,7 +66,9 @@ export const relationships = pgTable("relationships", {
   id: serial("id").primaryKey(),
   source_id: integer("source_id").notNull(),
   target_id: integer("target_id").notNull(),
-  relationship_type: text("relationship_type").notNull(), // "biological", "adoptive", "step"
+  relationship_type: text("relationship_type").notNull(), 
+  // Supported values: "parent", "child", "spouse", "sibling", "guardian", "adoptive", "step", "half-sibling", etc.
+  relation_category: text("relation_category").default("biological"), // "biological", "adoptive", "step"
   notes: text("notes"),
 });
 
@@ -74,6 +76,7 @@ export const insertRelationshipSchema = createInsertSchema(relationships).pick({
   source_id: true,
   target_id: true,
   relationship_type: true,
+  relation_category: true,
   notes: true,
 });
 

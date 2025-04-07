@@ -48,6 +48,8 @@ async function migrate() {
         relationship TEXT NOT NULL,
         avatar_url TEXT,
         birth_date TIMESTAMP,
+        location TEXT,
+        bio TEXT,
         metadata JSONB DEFAULT '{}'
       );
     `);
@@ -59,6 +61,7 @@ async function migrate() {
         source_id INTEGER NOT NULL,
         target_id INTEGER NOT NULL,
         relationship_type TEXT NOT NULL,
+        relation_category TEXT DEFAULT 'biological',
         notes TEXT
       );
     `);

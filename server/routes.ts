@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { format } from "date-fns";
-import { validateFamilyMemberData, analyzeRelationships, generateFamilyMemberNarrative } from "./services/aiService";
+import { aiService } from "./services/aiService";
 import { hashPassword, verifyPassword, generateToken } from "./services/authService";
 import { authenticate, requireAdmin } from "./middleware/auth";
 
@@ -139,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // AI Validation API
+  // We're not using this old AI validation function, just providing a simple response
   app.post("/api/validate/family-member", async (req: Request, res: Response) => {
     try {
       const { name, role, relationship } = req.body;
@@ -151,14 +151,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const validationResult = await validateFamilyMemberData({ name, role, relationship });
-      res.json(validationResult);
+      // Return a simple validation result - no AI validation needed here
+      res.json({
+        isValid: true,
+        issues: []
+      });
     } catch (error) {
       console.error("Error validating family member data:", error);
       res.status(500).json({ 
         message: "Failed to validate family member data",
         isValid: true, // Default to true in case of error to not block the form
-        issues: ["AI validation service unavailable"]
+        issues: ["Validation service unavailable"]
       });
     }
   });
@@ -587,16 +590,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const familyMembers = await storage.getAllFamilyMembers();
       const relationships = await storage.getAllRelationships();
       
-      const focusMemberId = req.query.memberId ? Number(req.query.memberId) : undefined;
-      const insights = await analyzeRelationships(familyMembers, relationships, focusMemberId);
+      // Call our aiService to analyze relationships
+      const analysis = await aiService.analyzeRelationships(familyMembers, relationships);
       
-      res.json(insights);
+      res.json(analysis);
     } catch (error) {
       console.error("Error analyzing relationships:", error);
       res.status(500).json({
-        summary: "Error analyzing relationships",
-        keyPoints: ["An error occurred while analyzing the family relationships."],
-        suggestions: ["Try again later or contact support if the issue persists."]
+        insights: "An error occurred while analyzing the family relationships.",
+        recommendations: "Try again later or contact support if the issue persists."
       });
     }
   });
@@ -611,22 +613,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Family member not found" });
       }
       
-      const relationships = await storage.getRelationshipsByMember(memberId);
+      // Get all relationships and family members for context
+      const relationships = await storage.getAllRelationships();
       const allMembers = await storage.getAllFamilyMembers();
       
-      // Filter to only related members
-      const relatedMemberIds = relationships.flatMap(rel => 
-        [rel.source_id, rel.target_id].filter(id => id !== memberId)
-      );
-      const relatedMembers = allMembers.filter(m => relatedMemberIds.includes(m.id));
+      // Generate the narrative using our AI service
+      const narrativeResult = await aiService.generateMemberNarrative(member, allMembers, relationships);
       
-      const narrative = await generateFamilyMemberNarrative(member, relationships, relatedMembers);
-      res.json({ narrative });
+      res.json(narrativeResult);
     } catch (error) {
       console.error("Error generating family member narrative:", error);
       res.status(500).json({ 
-        error: "Failed to generate narrative",
-        message: "An error occurred while generating the family member narrative."
+        narrative: "Unable to generate narrative at this time.",
+        timeline: []
       });
     }
   });

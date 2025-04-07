@@ -1,316 +1,239 @@
 import OpenAI from "openai";
 import { FamilyMember, Relationship } from "@shared/schema";
 
-// Initialize OpenAI with API key from environment variables
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI with API key
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-interface ValidationResult {
-  isValid: boolean;
-  issues: string[];
-  suggestions?: {
-    name?: string;
-    role?: string;
-    relationship?: string;
-  };
-}
-
-interface RelationshipInsight {
-  summary: string;
-  keyPoints: string[];
-  suggestions: string[];
-}
+// Make sure this comment stays in code: the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 
 /**
- * Validates family member data using OpenAI's GPT model
- * @param memberData Data to validate
- * @returns Validation result with issues and suggestions
+ * Service to handle AI operations for relationship analysis and narrative generation
  */
-export async function validateFamilyMemberData(memberData: {
-  name: string;
-  role: string;
-  relationship: string;
-}): Promise<ValidationResult> {
-  try {
-    // Create a prompt for the AI to validate the family member data
-    const prompt = `
-    Please validate the following family member data and check for any issues:
-    
-    Name: ${memberData.name}
-    Role: ${memberData.role}
-    Relationship: ${memberData.relationship}
-    
-    Assess if this is valid family member data. Check for:
-    1. Is the name appropriate and realistic for a family member?
-    2. Does the role make sense in a family context (e.g., father, mother, sister, etc.)?
-    3. Is the relationship appropriate?
-    4. Any inconsistencies between the fields?
-    
-    Respond in JSON format with these fields:
-    - isValid (boolean): whether the data appears valid
-    - issues (array): list of specific issues found
-    - suggestions (object): suggested corrections if any issues were found
-    
-    Example response:
-    {
-      "isValid": true,
-      "issues": []
-    }
-    
-    Or if issues are found:
-    {
-      "isValid": false,
-      "issues": ["Role 'XYZ' is not a common family role"],
-      "suggestions": {
-        "role": "Cousin"
-      }
-    }
-    `;
+export class AIService {
+  /**
+   * Analyze relationships between family members
+   * @param familyMembers List of family members
+   * @param relationships List of relationships between members
+   * @returns Analysis of relationships with insights and recommendations
+   */
+  async analyzeRelationships(
+    familyMembers: FamilyMember[],
+    relationships: Relationship[]
+  ): Promise<{ insights: string; recommendations: string }> {
+    try {
+      // Create a comprehensive family map from the data
+      const familyMap = this.createFamilyMap(familyMembers, relationships);
 
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: [
-        {
-          role: "system",
-          content: "You are a family data validation assistant. You check family member data for accuracy and consistency."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.3 // Lower temperature for more consistent, focused responses
-    });
+      // Prepare detailed prompt for OpenAI
+      const prompt = `
+      Analyze the following family structure and relationships:
+      
+      ${JSON.stringify(familyMap, null, 2)}
+      
+      Please provide:
+      1. Key insights about this family structure (identify potential relationship gaps, unique patterns, etc.)
+      2. Recommendations to strengthen family connections and improve relationships
+      
+      Format your response as JSON with two fields: "insights" and "recommendations".
+      Keep insights fact-based and objective. Keep recommendations supportive and practical.
+      Limit your response to key points most relevant to this specific family structure.
+      `;
 
-    // Parse the response
-    const resultText = response.choices[0].message.content;
-    if (!resultText) {
-      throw new Error("Empty response from AI");
-    }
-
-    const result = JSON.parse(resultText) as ValidationResult;
-    return result;
-  } catch (error: any) { // Type annotation for error
-    console.error("AI validation error:", error);
-    
-    // Check for rate limit errors
-    if ((error?.status === 429) || (error?.error?.type === 'insufficient_quota')) {
-      return {
-        isValid: true, // Default to true to allow submission despite API limits
-        issues: ["AI validation is currently unavailable due to API rate limits."],
-      };
-    }
-    
-    // Return a default validation result for other errors
-    return {
-      isValid: true, // We default to true to avoid blocking submissions on API failure
-      issues: ["Unable to perform AI validation"],
-    };
-  }
-}
-
-/**
- * Analyzes family relationships to provide insights and suggestions
- * @param familyMembers List of family members
- * @param relationships List of relationships between members
- * @param focusMemberId Optional ID of a member to focus analysis on
- * @returns Insights and suggestions about the relationships
- */
-export async function analyzeRelationships(
-  familyMembers: FamilyMember[],
-  relationships: Relationship[],
-  focusMemberId?: number
-): Promise<RelationshipInsight> {
-  try {
-    // Create a simplified data structure for analysis
-    const simplifiedMembers = familyMembers.map(member => ({
-      id: member.id,
-      name: member.name,
-      birthDate: member.birth_date,
-      role: member.role
-    }));
-
-    const simplifiedRelationships = relationships.map(rel => ({
-      source: familyMembers.find(m => m.id === rel.source_id)?.name || `Member ${rel.source_id}`,
-      target: familyMembers.find(m => m.id === rel.target_id)?.name || `Member ${rel.target_id}`,
-      type: rel.relationship_type,
-      notes: rel.notes || ""
-    }));
-
-    // Get focus member if specified
-    let focusMember = null;
-    if (focusMemberId) {
-      focusMember = familyMembers.find(m => m.id === focusMemberId);
-    }
-
-    // Create a prompt for relationship analysis
-    const prompt = `
-    Please analyze these family relationships and provide insights:
-    
-    ${focusMember ? `FOCUS MEMBER: ${focusMember.name}, Role: ${focusMember.role}` : 'OVERALL FAMILY ANALYSIS'}
-    
-    FAMILY MEMBERS:
-    ${JSON.stringify(simplifiedMembers, null, 2)}
-    
-    RELATIONSHIPS:
-    ${JSON.stringify(simplifiedRelationships, null, 2)}
-    
-    ${focusMember 
-      ? `Analyze the relationships involving ${focusMember.name} and provide insights about their connections to other family members.` 
-      : 'Analyze the overall family structure and identify key patterns, potential issues, or interesting observations.'}
-    
-    Consider:
-    1. Complex or unusual relationship patterns
-    2. Missing connections that might be important
-    3. Interesting family dynamics
-    4. Suggestions for enhancing family connections
-    5. Potential data inconsistencies
-    
-    Respond in JSON format with these fields:
-    - summary (string): A brief overview of the key insights
-    - keyPoints (array): List of specific observations or insights
-    - suggestions (array): Recommended actions or improvements
-    `;
-
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: [
-        {
-          role: "system",
-          content: "You are a family relationship analyst. You provide insights about family structures and connections."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.5 // Slightly higher temperature for more creative insights
-    });
-
-    // Parse the response
-    const resultText = response.choices[0].message.content;
-    if (!resultText) {
-      throw new Error("Empty response from AI");
-    }
-
-    const result = JSON.parse(resultText) as RelationshipInsight;
-    return result;
-  } catch (error: any) { // Type annotation for error
-    console.error("AI relationship analysis error:", error);
-    
-    // Check for rate limit errors
-    if ((error?.status === 429) || (error?.error?.type === 'insufficient_quota')) {
-      return {
-        summary: "API rate limit reached. The AI analysis feature is currently unavailable.",
-        keyPoints: [
-          "OpenAI API quota has been reached or rate limit exceeded.",
-          "This is a temporary limitation that will reset according to your usage plan."
+      // Call OpenAI API
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a family relationship expert specializing in analyzing family structures and providing helpful insights. Focus on patterns, potential areas for strengthening relationships, and practical recommendations.",
+          },
+          { role: "user", content: prompt },
         ],
-        suggestions: [
-          "Try again in a few minutes.",
-          "Consider upgrading your OpenAI API plan for higher limits.",
-          "Continue to use the application's other features while this service is unavailable."
-        ]
+        response_format: { type: "json_object" },
+      });
+
+      // Parse and return the analysis
+      const analysisText = completion.choices[0].message.content || "{}";
+      const analysis = JSON.parse(analysisText);
+
+      return {
+        insights: analysis.insights || "No insights available at this time.",
+        recommendations: analysis.recommendations || "No recommendations available at this time.",
+      };
+    } catch (error) {
+      console.error("Error analyzing relationships:", error);
+      return {
+        insights: "Unable to analyze relationships at this time.",
+        recommendations: "Please try again later.",
       };
     }
-    
-    // Return a default insight for other errors
-    return {
-      summary: "Unable to analyze relationships due to a technical issue.",
-      keyPoints: ["AI analysis service is currently unavailable."],
-      suggestions: ["Try again later or analyze the relationships manually."]
-    };
   }
-}
 
-/**
- * Generates a narrative about a specific family member based on their data and relationships
- * @param member The family member to create a narrative for
- * @param relationships Relationships involving this member
- * @param relatedMembers Other family members related to this person
- * @returns A narrative story about the family member
- */
-export async function generateFamilyMemberNarrative(
-  member: FamilyMember,
-  relationships: Relationship[],
-  relatedMembers: FamilyMember[]
-): Promise<string> {
-  try {
-    // Extract relevant relationships for this member
-    const memberRelationships = relationships.filter(
-      rel => rel.source_id === member.id || rel.target_id === member.id
-    );
+  /**
+   * Generate a narrative for a specific family member
+   * @param member The family member to generate a narrative for
+   * @param familyMembers All family members for context
+   * @param relationships All relationships for context
+   * @returns A personalized narrative for the family member
+   */
+  async generateMemberNarrative(
+    member: FamilyMember,
+    familyMembers: FamilyMember[],
+    relationships: Relationship[]
+  ): Promise<{ narrative: string; timeline: any[] }> {
+    try {
+      // Get directly connected members
+      const connectedMembers = this.getConnectedMembers(member.id, familyMembers, relationships);
+      
+      // Prepare prompt for OpenAI
+      const prompt = `
+      Create a personal narrative for ${member.name} based on this information:
+      
+      Person: ${JSON.stringify(member, null, 2)}
+      
+      Connected Family Members: ${JSON.stringify(connectedMembers, null, 2)}
+      
+      Please provide:
+      1. A compelling personal narrative that integrates their biographical information
+      2. A timeline of key events in their life (based on available data)
+      
+      Format your response as JSON with two fields: "narrative" and "timeline" (array of events with dates).
+      Make the narrative personal, warm, and reflective of their relationships. Limit to 250 words.
+      `;
+
+      // Call OpenAI API
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a skilled biographer and family historian who creates compelling personal narratives. You excel at weaving facts into engaging stories that highlight family connections.",
+          },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      // Parse and return the narrative
+      const narrativeText = completion.choices[0].message.content || "{}";
+      const narrative = JSON.parse(narrativeText);
+
+      return {
+        narrative: narrative.narrative || "Narrative not available at this time.",
+        timeline: narrative.timeline || [],
+      };
+    } catch (error) {
+      console.error("Error generating narrative:", error);
+      return {
+        narrative: "Unable to generate narrative at this time.",
+        timeline: [],
+      };
+    }
+  }
+
+  /**
+   * Helper method to create a structured map of the family for AI analysis
+   */
+  private createFamilyMap(familyMembers: FamilyMember[], relationships: Relationship[]) {
+    const memberMap = new Map<number, FamilyMember>();
     
-    // Map relationship IDs to names for clearer context
-    const relationshipDescriptions = memberRelationships.map(rel => {
-      const isSource = rel.source_id === member.id;
-      const otherMemberId = isSource ? rel.target_id : rel.source_id;
-      const otherMember = relatedMembers.find(m => m.id === otherMemberId);
+    // Create map of members by ID for easier lookup
+    familyMembers.forEach(member => {
+      memberMap.set(member.id, member);
+    });
+    
+    // Structure members with their relationships
+    const structuredFamily = familyMembers.map(member => {
+      const memberRelationships = relationships.filter(
+        rel => rel.source_id === member.id || rel.target_id === member.id
+      );
+      
+      const connections = memberRelationships.map(rel => {
+        const isSource = rel.source_id === member.id;
+        const connectedId = isSource ? rel.target_id : rel.source_id;
+        const connectedMember = memberMap.get(connectedId);
+        
+        if (!connectedMember) return null;
+        
+        // Determine relationship direction and type
+        let relationshipType = rel.relationship_type;
+        if (!isSource) {
+          // Invert relationship type if needed
+          if (relationshipType === "parent") relationshipType = "child";
+          else if (relationshipType === "child") relationshipType = "parent";
+        }
+        
+        return {
+          id: connectedId,
+          name: connectedMember.name,
+          relationship: relationshipType,
+          category: rel.relation_category,
+          birth_date: connectedMember.birth_date,
+        };
+      }).filter(Boolean);
       
       return {
-        type: rel.relationship_type,
-        direction: isSource ? "to" : "from",
-        otherPerson: otherMember?.name || `Unknown (ID: ${otherMemberId})`,
-        notes: rel.notes
+        id: member.id,
+        name: member.name,
+        birth_date: member.birth_date,
+        role: member.role,
+        bio: member.bio,
+        connections,
       };
     });
+    
+    return structuredFamily;
+  }
 
-    // Create a prompt for narrative generation
-    const prompt = `
-    Please create a warm, personal narrative about this family member based on their information:
+  /**
+   * Helper method to get members directly connected to a specific member
+   */
+  private getConnectedMembers(
+    memberId: number, 
+    familyMembers: FamilyMember[], 
+    relationships: Relationship[]
+  ) {
+    const memberMap = new Map<number, FamilyMember>();
     
-    NAME: ${member.name}
-    ROLE: ${member.role}
-    BIRTH DATE: ${member.birth_date || 'Unknown'}
-    LOCATION: ${member.location || 'Unknown'}
-    BIO: ${member.bio || 'No additional information available'}
-    
-    RELATIONSHIPS:
-    ${JSON.stringify(relationshipDescriptions, null, 2)}
-    
-    Create a brief, engaging narrative that captures this person's place in the family.
-    Focus on their connections to others, their role, and any notable details from their bio.
-    The tone should be warm and personal, as if written by a caring family member.
-    Keep it under 250 words and make it feel like a meaningful personal description.
-    `;
-
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: [
-        {
-          role: "system",
-          content: "You are a family historian who writes meaningful, personal narratives about family members. Your writing captures the essence of each person and their relationships."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7 // Higher temperature for more creative, warm narrative
+    // Create map of members by ID for easier lookup
+    familyMembers.forEach(member => {
+      memberMap.set(member.id, member);
     });
-
-    // Return the narrative
-    const narrative = response.choices[0].message.content;
-    if (!narrative) {
-      throw new Error("Empty response from AI");
-    }
-
-    return narrative;
-  } catch (error: any) { // Type annotation for error
-    console.error("AI narrative generation error:", error);
     
-    // Check for rate limit errors
-    if ((error?.status === 429) || (error?.error?.type === 'insufficient_quota')) {
-      return `${member.name} is a ${member.role} in the family. The AI-generated narrative is currently unavailable due to API usage limits. Please try again later when the quota resets.`;
-    }
+    // Find relationships involving this member
+    const memberRelationships = relationships.filter(
+      rel => rel.source_id === memberId || rel.target_id === memberId
+    );
     
-    // Return a generic narrative for other errors
-    return `${member.name} is a ${member.role} in the family. Additional details and a personalized narrative are currently unavailable due to a technical issue.`;
+    // Get connected members with relationship details
+    return memberRelationships.map(rel => {
+      const isSource = rel.source_id === memberId;
+      const connectedId = isSource ? rel.target_id : rel.source_id;
+      const connectedMember = memberMap.get(connectedId);
+      
+      if (!connectedMember) return null;
+      
+      // Determine relationship direction and type
+      let relationshipType = rel.relationship_type;
+      if (!isSource) {
+        // Invert relationship type if needed
+        if (relationshipType === "parent") relationshipType = "child";
+        else if (relationshipType === "child") relationshipType = "parent";
+      }
+      
+      return {
+        id: connectedId,
+        name: connectedMember.name,
+        relationship: relationshipType,
+        category: rel.relation_category,
+        birth_date: connectedMember.birth_date,
+        connection: isSource ? "to" : "from",
+      };
+    }).filter(Boolean);
   }
 }
+
+// Export singleton instance
+export const aiService = new AIService();

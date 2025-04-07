@@ -15,8 +15,8 @@ import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
 import InfographicCreator from "@/components/family-tree/InfographicCreator";
 import GenerationalTimeline from "@/components/family-tree/GenerationalTimeline";
-import MemberNarrative from "@/components/ai/MemberNarrative";
-import RelationshipInsights from "@/components/ai/RelationshipInsights";
+import { MemberNarrative } from "@/components/family-tree/MemberNarrative";
+import { RelationshipAnalysis } from "@/components/family-tree/RelationshipAnalysis";
 import { FamilyMember, Relationship, insertFamilyMemberSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -355,17 +355,15 @@ const FamilyTreePage = () => {
       
       {/* AI Insights Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Relationship Insights Card */}
-        <RelationshipInsights 
-          memberId={selectedMember?.id} 
-          className="h-full"
-        />
+        {/* Relationship Analysis Card */}
+        <RelationshipAnalysis />
         
         {/* Member Narrative Card */}
-        <MemberNarrative 
-          memberId={selectedMember?.id || 0} 
-          className="h-full"
-        />
+        {selectedMember && (
+          <MemberNarrative 
+            member={selectedMember} 
+          />
+        )}
       </div>
       
       {/* Generational Timeline Section */}
