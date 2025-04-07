@@ -92,7 +92,7 @@ const InfographicCreator: React.FC<InfographicCreatorProps> = ({ onClose }) => {
     queryKey: ['/api/relationships'],
   });
 
-  // Calculate positions for all nodes in a force-directed layout
+  // Calculate positions for all nodes in a hierarchical tree layout
   const calculateTreeLayout = () => {
     if (!familyMembers || !relationships) return null;
     
@@ -100,74 +100,119 @@ const InfographicCreator: React.FC<InfographicCreatorProps> = ({ onClose }) => {
     const height = 800;
     const nodeRadius = 50;
     const padding = 100;
+    const levelHeight = 120; // Vertical distance between generations
     
-    // Initialize node positions randomly
-    const nodes = familyMembers.map(member => ({
-      id: member.id,
-      name: member.name,
-      role: member.role,
-      x: Math.random() * (width - padding * 2) + padding,
-      y: Math.random() * (height - padding * 2) + padding,
-      member
-    }));
+    // Define node type for better type safety
+    interface TreeNode {
+      id: number;
+      name: string;
+      role: string;
+      children: Array<{node: TreeNode, type: string}>;
+      level: number;
+      x: number;
+      y: number;
+      member: FamilyMember;
+    }
     
-    // Create links from relationships
-    const links = relationships.map(rel => ({
-      source: nodes.findIndex(n => n.id === rel.source_id),
-      target: nodes.findIndex(n => n.id === rel.target_id),
-      type: rel.relationship_type
-    })).filter(link => link.source !== -1 && link.target !== -1);
+    // Create a map of node IDs to their data
+    const nodeMap = new Map<number, TreeNode>();
+    familyMembers.forEach(member => {
+      nodeMap.set(member.id, {
+        id: member.id,
+        name: member.name,
+        role: member.role,
+        children: [],
+        level: 0, // Will be calculated later
+        x: 0,     // Will be calculated later
+        y: 0,     // Will be calculated later
+        member
+      });
+    });
     
-    // Simple force-directed layout simulation
-    const iterations = 100;
-    const k = 20; // Force strength
-    
-    for (let i = 0; i < iterations; i++) {
-      // Apply repulsive forces between all nodes
-      for (let a = 0; a < nodes.length; a++) {
-        for (let b = a + 1; b < nodes.length; b++) {
-          const dx = nodes[b].x - nodes[a].x;
-          const dy = nodes[b].y - nodes[a].y;
-          const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-          
-          // Repulsive force
-          const repulsive = k * k / distance;
-          const fx = repulsive * dx / distance;
-          const fy = repulsive * dy / distance;
-          
-          nodes[a].x -= fx;
-          nodes[a].y -= fy;
-          nodes[b].x += fx;
-          nodes[b].y += fy;
+    // Build the relationship tree
+    relationships.forEach(rel => {
+      const sourceNode = nodeMap.get(rel.source_id);
+      const targetNode = nodeMap.get(rel.target_id);
+      
+      if (sourceNode && targetNode) {
+        // Add to children array
+        if (rel.relationship_type === 'biological' || rel.relationship_type === 'adoptive') {
+          // Only consider parent->child relationships for the tree structure
+          sourceNode.children.push({
+            node: targetNode,
+            type: rel.relationship_type
+          });
         }
       }
-      
-      // Apply attractive forces along links
-      for (const link of links) {
-        const sourceNode = nodes[link.source];
-        const targetNode = nodes[link.target];
-        
-        const dx = targetNode.x - sourceNode.x;
-        const dy = targetNode.y - sourceNode.y;
-        const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-        
-        // Attractive force
-        const attractive = distance * distance / k;
-        const fx = attractive * dx / distance;
-        const fy = attractive * dy / distance;
-        
-        sourceNode.x += fx;
-        sourceNode.y += fy;
-        targetNode.x -= fx;
-        targetNode.y -= fy;
+    });
+    
+    // Find potential root nodes (members with no parents)
+    const childIds = new Set<number>();
+    relationships.forEach(rel => {
+      childIds.add(rel.target_id);
+    });
+    
+    const rootNodes = Array.from(nodeMap.values()).filter(node => !childIds.has(node.id));
+    
+    // If no clear root, take the first node
+    const roots = rootNodes.length > 0 ? rootNodes : [nodeMap.get(familyMembers[0].id)];
+    
+    // Assign levels to nodes (depth in the tree)
+    const assignLevels = (node: TreeNode, level: number): void => {
+      node.level = Math.max(node.level, level);
+      node.children.forEach(child => {
+        assignLevels(child.node, level + 1);
+      });
+    };
+    
+    roots.forEach(root => {
+      if (root) assignLevels(root, 0);
+    });
+    
+    // Group nodes by their level
+    const levelGroups: Array<Array<TreeNode>> = [];
+    nodeMap.forEach(node => {
+      if (!levelGroups[node.level]) {
+        levelGroups[node.level] = [];
       }
+      levelGroups[node.level].push(node);
+    });
+    
+    // Calculate horizontal positions for nodes on each level
+    levelGroups.forEach((group: Array<TreeNode>, level: number) => {
+      const levelWidth = width - padding * 2;
+      const nodeSpacing = levelWidth / (group.length + 1);
       
-      // Keep nodes within bounds
-      for (const node of nodes) {
-        node.x = Math.max(padding, Math.min(width - padding, node.x));
-        node.y = Math.max(padding, Math.min(height - padding, node.y));
-      }
+      group.forEach((node: TreeNode, i: number) => {
+        node.x = padding + nodeSpacing * (i + 1);
+        node.y = padding + level * levelHeight;
+      });
+    });
+    
+    // Handle orphan nodes
+    const orphans = Array.from(nodeMap.values()).filter(node => node.level === 0 && !rootNodes.includes(node));
+    if (orphans.length > 0) {
+      const orphanLevel = levelGroups.length;
+      const levelWidth = width - padding * 2;
+      const nodeSpacing = levelWidth / (orphans.length + 1);
+      
+      orphans.forEach((node: TreeNode, i: number) => {
+        node.x = padding + nodeSpacing * (i + 1);
+        node.y = padding + orphanLevel * levelHeight;
+      });
     }
+    
+    // Create array of nodes and links for rendering
+    const nodes = Array.from(nodeMap.values());
+    const links = relationships.map(rel => {
+      const source = nodes.findIndex(n => n.id === rel.source_id);
+      const target = nodes.findIndex(n => n.id === rel.target_id);
+      return { 
+        source, 
+        target, 
+        type: rel.relationship_type
+      };
+    }).filter(link => link.source !== -1 && link.target !== -1);
     
     return { nodes, links, width, height };
   };
@@ -208,24 +253,53 @@ const InfographicCreator: React.FC<InfographicCreatorProps> = ({ onClose }) => {
         </text>
         
         {/* Links */}
-        {links.map((link, idx) => (
-          <line
-            key={`link-${idx}`}
-            x1={nodes[link.source].x}
-            y1={nodes[link.source].y}
-            x2={nodes[link.target].x}
-            y2={nodes[link.target].y}
-            stroke={currentTheme.lineColor}
-            strokeWidth="2"
-            strokeDasharray={link.type === 'biological' ? 'none' : '5,5'}
-          />
-        ))}
+        {links.map((link, idx) => {
+          const sourceNode = nodes[link.source];
+          const targetNode = nodes[link.target];
+          
+          // Generate a curved path for parent-child relationships
+          const isParentChild = targetNode.level > sourceNode.level;
+          
+          if (isParentChild) {
+            // Create a curved path for parent-child relationships
+            const midX = (sourceNode.x + targetNode.x) / 2;
+            const midY = sourceNode.y + (targetNode.y - sourceNode.y) / 2;
+            
+            const path = `M ${sourceNode.x} ${sourceNode.y} 
+                          Q ${midX} ${midY - 20}, ${targetNode.x} ${targetNode.y}`;
+            
+            return (
+              <path
+                key={`link-${idx}`}
+                d={path}
+                fill="none"
+                stroke={currentTheme.lineColor}
+                strokeWidth="2"
+                strokeDasharray={link.type === 'biological' ? 'none' : '5,5'}
+              />
+            );
+          } else {
+            // Use a straight dashed line for other relationships
+            return (
+              <line
+                key={`link-${idx}`}
+                x1={sourceNode.x}
+                y1={sourceNode.y}
+                x2={targetNode.x}
+                y2={targetNode.y}
+                stroke={currentTheme.lineColor}
+                strokeWidth="2"
+                strokeDasharray="4,4"
+              />
+            );
+          }
+        })}
         
         {/* Nodes */}
         {nodes.map((node) => {
           const initials = node.name
             .split(' ')
-            .map(n => n[0])
+            .map((n: string) => n[0])
             .join('')
             .substring(0, 2)
             .toUpperCase();
