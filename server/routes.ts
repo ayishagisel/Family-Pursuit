@@ -259,11 +259,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Relationships API
   app.get("/api/relationships", async (req: Request, res: Response) => {
     try {
-      const relationships = await storage.getAllRelationships();
-      res.json(relationships);
+      const hierarchical = req.query.hierarchical === 'true';
+      
+      if (hierarchical) {
+        console.log("Fetching hierarchical family structure");
+        const hierarchicalStructure = await storage.getHierarchicalFamilyStructure();
+        res.json(hierarchicalStructure);
+      } else {
+        const relationships = await storage.getAllRelationships();
+        res.json(relationships);
+      }
     } catch (error) {
       console.error("Error fetching relationships:", error);
       res.status(500).json({ message: "Failed to fetch relationships" });
+    }
+  });
+  
+  app.get("/api/family/hierarchical", async (req: Request, res: Response) => {
+    try {
+      console.log("Fetching hierarchical family structure from dedicated endpoint");
+      const hierarchicalStructure = await storage.getHierarchicalFamilyStructure();
+      res.json(hierarchicalStructure);
+    } catch (error) {
+      console.error("Error fetching hierarchical family structure:", error);
+      res.status(500).json({ message: "Failed to fetch hierarchical family structure" });
     }
   });
 

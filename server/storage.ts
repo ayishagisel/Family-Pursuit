@@ -26,6 +26,7 @@ export interface IStorage {
   getRelationship(id: number): Promise<Relationship | undefined>;
   getRelationshipsByMember(memberId: number): Promise<Relationship[]>;
   getAllRelationships(): Promise<Relationship[]>;
+  getHierarchicalFamilyStructure(): Promise<any[]>;
   createRelationship(relationship: InsertRelationship): Promise<Relationship>;
   updateRelationship(id: number, relationship: Partial<InsertRelationship>): Promise<Relationship | undefined>;
   deleteRelationship(id: number): Promise<boolean>;
@@ -394,6 +395,116 @@ export class MemStorage implements IStorage {
   
   async getAllRelationships(): Promise<Relationship[]> {
     return Array.from(this.relationships.values());
+  }
+  
+  async getHierarchicalFamilyStructure(): Promise<any[]> {
+    // In a memory storage implementation, we need to build the hierarchical structure
+    const allMembers = Array.from(this.familyMembers.values());
+    const allRelationships = Array.from(this.relationships.values());
+    
+    // Create a map of members by ID for easy access
+    const membersMap = new Map();
+    allMembers.forEach(member => {
+      membersMap.set(member.id, {
+        id: member.id,
+        name: member.name,
+        role: member.role,
+        relationship: member.relationship,
+        birth_date: member.birth_date,
+        location: member.location,
+        bio: member.bio,
+        personality_traits: member.personality_traits,
+        interests: member.interests,
+        occupation: member.occupation,
+        avatarUrl: member.avatarUrl,
+        // Relationship placeholders
+        spouse: null,
+        children: [],
+        parents: [],
+        siblings: [],
+        extended: [] // For other relationships (aunt, uncle, cousin, etc.)
+      });
+    });
+    
+    // Process relationships to build the hierarchical structure
+    allRelationships.forEach(rel => {
+      const sourceMember = membersMap.get(rel.source_id || rel.sourceMemberId);
+      const targetMember = membersMap.get(rel.target_id || rel.targetMemberId);
+      
+      if (!sourceMember || !targetMember) {
+        console.warn(`Invalid relationship: source_id=${rel.source_id || rel.sourceMemberId}, target_id=${rel.target_id || rel.targetMemberId}`);
+        return;
+      }
+      
+      const relationshipType = rel.relationship_type || rel.relationshipType;
+      const relationCategory = rel.relation_category || "immediate";
+      
+      // Process based on relationship type
+      switch (relationshipType.toLowerCase()) {
+        case 'spouse':
+          sourceMember.spouse = {
+            id: targetMember.id,
+            name: targetMember.name,
+            relationship_type: relationshipType,
+            relation_category: relationCategory
+          };
+          break;
+          
+        case 'parent':
+          targetMember.parents.push({
+            id: sourceMember.id,
+            name: sourceMember.name,
+            relationship_type: relationshipType,
+            relation_category: relationCategory
+          });
+          sourceMember.children.push({
+            id: targetMember.id,
+            name: targetMember.name,
+            relationship_type: 'child',
+            relation_category: relationCategory
+          });
+          break;
+          
+        case 'child':
+          sourceMember.parents.push({
+            id: targetMember.id,
+            name: targetMember.name,
+            relationship_type: 'parent',
+            relation_category: relationCategory
+          });
+          targetMember.children.push({
+            id: sourceMember.id,
+            name: sourceMember.name,
+            relationship_type: relationshipType,
+            relation_category: relationCategory
+          });
+          break;
+          
+        case 'sibling':
+        case 'step-sibling':
+        case 'half-sibling':
+          sourceMember.siblings.push({
+            id: targetMember.id,
+            name: targetMember.name,
+            relationship_type: relationshipType,
+            relation_category: relationCategory
+          });
+          break;
+          
+        default:
+          // Handle extended family and other relationship types
+          sourceMember.extended.push({
+            id: targetMember.id,
+            name: targetMember.name,
+            relationship_type: relationshipType,
+            relation_category: relationCategory
+          });
+          break;
+      }
+    });
+    
+    // Convert the map to an array
+    return Array.from(membersMap.values());
   }
   
   async createRelationship(relationship: InsertRelationship): Promise<Relationship> {

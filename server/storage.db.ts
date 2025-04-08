@@ -132,6 +132,187 @@ export class DatabaseStorage implements IStorage {
     return allRelationships;
   }
   
+  /**
+   * Get hierarchical family structure with nested relationships
+   */
+  async getHierarchicalFamilyStructure(): Promise<any[]> {
+    try {
+      // 1. Get all family members and relationships
+      const allMembers = await db.select().from(familyMembers);
+      const allRelationships = await db.select().from(relationships);
+      
+      logOperation('READ', 'hierarchical_family', { 
+        memberCount: allMembers.length, 
+        relationshipCount: allRelationships.length 
+      });
+      
+      // 2. Create a map of members by ID for easy access
+      const membersMap = new Map();
+      allMembers.forEach(member => {
+        membersMap.set(member.id, {
+          id: member.id,
+          name: member.name,
+          role: member.role,
+          relationship: member.relationship,
+          birth_date: member.birth_date,
+          location: member.location,
+          bio: member.bio,
+          personality_traits: member.personality_traits,
+          interests: member.interests,
+          occupation: member.occupation,
+          avatarUrl: member.avatarUrl,
+          // Relationship placeholders
+          spouse: null,
+          children: [],
+          parents: [],
+          siblings: [],
+          extended: [] // For other relationships (aunt, uncle, cousin, etc.)
+        });
+      });
+      
+      // 3. Process relationships to build the hierarchical structure
+      allRelationships.forEach(rel => {
+        const sourceMember = membersMap.get(rel.source_id);
+        const targetMember = membersMap.get(rel.target_id);
+        
+        if (!sourceMember || !targetMember) {
+          console.warn(`Invalid relationship: source_id=${rel.source_id}, target_id=${rel.target_id}`);
+          return;
+        }
+        
+        // Process based on relationship type
+        switch (rel.relationship_type.toLowerCase()) {
+          case 'spouse':
+            sourceMember.spouse = {
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: rel.relation_category
+            };
+            break;
+            
+          case 'parent':
+            targetMember.parents.push({
+              id: sourceMember.id,
+              name: sourceMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: rel.relation_category
+            });
+            sourceMember.children.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: 'child',
+              relation_category: rel.relation_category
+            });
+            break;
+            
+          case 'child':
+            sourceMember.parents.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: 'parent',
+              relation_category: rel.relation_category
+            });
+            targetMember.children.push({
+              id: sourceMember.id,
+              name: sourceMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: rel.relation_category
+            });
+            break;
+            
+          case 'sibling':
+          case 'step-sibling':
+          case 'half-sibling':
+            sourceMember.siblings.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: rel.relation_category
+            });
+            break;
+            
+          case 'adoptive-parent':
+            targetMember.parents.push({
+              id: sourceMember.id,
+              name: sourceMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: 'adoptive'
+            });
+            sourceMember.children.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: 'adoptive-child',
+              relation_category: 'adoptive'
+            });
+            break;
+            
+          case 'adoptive-child':
+            sourceMember.parents.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: 'adoptive-parent',
+              relation_category: 'adoptive'
+            });
+            targetMember.children.push({
+              id: sourceMember.id,
+              name: sourceMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: 'adoptive'
+            });
+            break;
+            
+          case 'step-parent':
+            targetMember.parents.push({
+              id: sourceMember.id,
+              name: sourceMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: 'step'
+            });
+            sourceMember.children.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: 'step-child',
+              relation_category: 'step'
+            });
+            break;
+            
+          case 'step-child':
+            sourceMember.parents.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: 'step-parent',
+              relation_category: 'step'
+            });
+            targetMember.children.push({
+              id: sourceMember.id,
+              name: sourceMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: 'step'
+            });
+            break;
+            
+          default:
+            // Handle extended family and other relationship types
+            sourceMember.extended.push({
+              id: targetMember.id,
+              name: targetMember.name,
+              relationship_type: rel.relationship_type,
+              relation_category: rel.relation_category
+            });
+            break;
+        }
+      });
+      
+      // 4. Convert the map to an array
+      return Array.from(membersMap.values());
+      
+    } catch (error) {
+      console.error("Error building hierarchical family structure:", error);
+      throw error;
+    }
+  }
+  
   async createRelationship(relationship: InsertRelationship): Promise<Relationship> {
     const [newRelationship] = await db
       .insert(relationships)
