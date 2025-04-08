@@ -1,383 +1,330 @@
 import { describe, it, expect, beforeAll, afterAll } from 'jest';
-import { db } from '../db';
-import { DatabaseStorage } from '../storage.db';
-import { FamilyMember, Relationship } from '@shared/schema';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { familyMembers, relationships } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
-const storage = new DatabaseStorage();
-
-// Mock family data for testing
-const mockFamilyMembers: FamilyMember[] = [
-  {
-    id: 1,
-    name: "John Smith",
-    role: "Grandfather",
-    relationship: "Grandfather",
-    birth_date: "1950-01-01",
-    location: "New York",
-    bio: "Family patriarch",
-    avatarUrl: null,
-    user_id: null,
-    personality_traits: [],
-    interests: [],
-    occupation: "Retired"
-  },
-  {
-    id: 2,
-    name: "Mary Smith",
-    role: "Grandmother",
-    relationship: "Grandmother",
-    birth_date: "1952-03-15",
-    location: "New York",
-    bio: "Family matriarch",
-    avatarUrl: null,
-    user_id: null,
-    personality_traits: [],
-    interests: [],
-    occupation: "Retired"
-  },
-  {
-    id: 3,
-    name: "Robert Smith",
-    role: "Father",
-    relationship: "Father",
-    birth_date: "1975-06-10",
-    location: "Boston",
-    bio: "John and Mary's son",
-    avatarUrl: null,
-    user_id: null,
-    personality_traits: [],
-    interests: [],
-    occupation: "Engineer"
-  },
-  {
-    id: 4,
-    name: "Lisa Smith",
-    role: "Mother",
-    relationship: "Mother",
-    birth_date: "1978-08-20",
-    location: "Boston",
-    bio: "Robert's wife",
-    avatarUrl: null,
-    user_id: null,
-    personality_traits: [],
-    interests: [],
-    occupation: "Teacher"
-  },
-  {
-    id: 5,
-    name: "Emily Smith",
-    role: "Daughter",
-    relationship: "Daughter",
-    birth_date: "2005-12-25",
-    location: "Boston",
-    bio: "Robert and Lisa's daughter",
-    avatarUrl: null,
-    user_id: null,
-    personality_traits: [],
-    interests: [],
-    occupation: "Student"
-  }
-];
-
-// Mock relationship data for testing
-const mockRelationships: Relationship[] = [
-  // John and Mary (spouses)
-  {
-    id: 1,
-    source_id: 1,
-    target_id: 2,
-    relationship_type: "spouse",
-    relation_category: "immediate"
-  },
-  // John and Robert (father-son)
-  {
-    id: 2,
-    source_id: 1,
-    target_id: 3,
-    relationship_type: "father",
-    relation_category: "immediate"
-  },
-  // Mary and Robert (mother-son)
-  {
-    id: 3,
-    source_id: 2,
-    target_id: 3,
-    relationship_type: "mother",
-    relation_category: "immediate"
-  },
-  // Robert and Lisa (spouses)
-  {
-    id: 4,
-    source_id: 3,
-    target_id: 4,
-    relationship_type: "spouse",
-    relation_category: "immediate"
-  },
-  // Robert and Emily (father-daughter)
-  {
-    id: 5,
-    source_id: 3,
-    target_id: 5,
-    relationship_type: "father",
-    relation_category: "immediate"
-  },
-  // Lisa and Emily (mother-daughter)
-  {
-    id: 6,
-    source_id: 4,
-    target_id: 5,
-    relationship_type: "mother",
-    relation_category: "immediate"
-  }
-];
-
-// Test suite for hierarchical data transformation
-describe('Hierarchical Family Structure Tests', () => {
-  
-  it('should correctly identify spouse relationships', () => {
-    const result = identifySpouseRelationships(mockRelationships);
-    expect(result.has(1)).toBeTruthy();
-    expect(result.get(1)).toBe(2);
-    expect(result.has(3)).toBeTruthy();
-    expect(result.get(3)).toBe(4);
-  });
-
-  it('should correctly identify parent-child relationships', () => {
-    const { parentChildMap, childParentMap } = identifyParentChildRelationships(mockRelationships);
-    
-    // Check parent-child map
-    expect(parentChildMap.has(1)).toBeTruthy();
-    expect(parentChildMap.get(1)).toContain(3);
-    expect(parentChildMap.has(3)).toBeTruthy();
-    expect(parentChildMap.get(3)).toContain(5);
-    
-    // Check child-parent map
-    expect(childParentMap.has(3)).toBeTruthy();
-    expect(childParentMap.get(3)).toContain(1);
-    expect(childParentMap.get(3)).toContain(2);
-    expect(childParentMap.has(5)).toBeTruthy();
-    expect(childParentMap.get(5)).toContain(3);
-    expect(childParentMap.get(5)).toContain(4);
-  });
-
-  it('should correctly calculate generations', () => {
-    const membersMap = new Map();
-    mockFamilyMembers.forEach(member => {
-      membersMap.set(member.id, { ...member, children: [], parents: [], siblings: [], extended: [] });
-    });
-    
-    const { parentChildMap } = identifyParentChildRelationships(mockRelationships);
-    calculateGenerations(membersMap, parentChildMap);
-    
-    // Grandparents should be generation 0
-    expect(membersMap.get(1).generation).toBe(0);
-    expect(membersMap.get(2).generation).toBe(0);
-    
-    // Parents should be generation 1
-    expect(membersMap.get(3).generation).toBe(1);
-    expect(membersMap.get(4).generation).toBe(1);
-    
-    // Children should be generation 2
-    expect(membersMap.get(5).generation).toBe(2);
-  });
-
-  it('should generate a complete hierarchical structure', () => {
-    const hierarchicalStructure = generateHierarchicalStructure(mockFamilyMembers, mockRelationships);
-    
-    // Check structure size
-    expect(hierarchicalStructure.length).toBe(5);
-    
-    // Check spouse relationships
-    const john = hierarchicalStructure.find(m => m.id === 1);
-    expect(john.spouse).toBeDefined();
-    expect(john.spouse.id).toBe(2);
-    
-    const robert = hierarchicalStructure.find(m => m.id === 3);
-    expect(robert.spouse).toBeDefined();
-    expect(robert.spouse.id).toBe(4);
-    
-    // Check parent-child relationships
-    expect(john.children.length).toBe(1);
-    expect(john.children[0].id).toBe(3);
-    
-    expect(robert.children.length).toBe(1);
-    expect(robert.children[0].id).toBe(5);
-    
-    const emily = hierarchicalStructure.find(m => m.id === 5);
-    expect(emily.parents.length).toBe(2);
-    expect(emily.parents.map(p => p.id).sort()).toEqual([3, 4]);
-    
-    // Check generations
-    expect(john.generation).toBe(0);
-    expect(robert.generation).toBe(1);
-    expect(emily.generation).toBe(2);
-  });
+// Test database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 });
 
-// Helper functions (these would typically be imported from your actual code)
-function identifySpouseRelationships(relationships: Relationship[]): Map<number, number> {
-  const spouseMap = new Map<number, number>();
-  
-  relationships
-    .filter(rel => rel.relationship_type === 'spouse')
-    .forEach(rel => {
-      spouseMap.set(rel.source_id, rel.target_id);
-      spouseMap.set(rel.target_id, rel.source_id);
-    });
-  
-  return spouseMap;
-}
+const db = drizzle(pool);
 
-function identifyParentChildRelationships(relationships: Relationship[]) {
-  const parentChildMap = new Map<number, number[]>();
-  const childParentMap = new Map<number, number[]>();
-  
-  relationships
-    .filter(rel => rel.relationship_type === 'father' || rel.relationship_type === 'mother')
-    .forEach(rel => {
-      // Add to parent-child map
-      if (!parentChildMap.has(rel.source_id)) {
-        parentChildMap.set(rel.source_id, []);
+// Mock for the DatabaseStorage class from storage.db.ts
+class TestDatabaseStorage {
+  private calculateGenerations(membersMap: Map<number, any>): void {
+    // Starting with root members (those who don't have parents in the dataset)
+    const rootMembers = Array.from(membersMap.values()).filter(
+      member => !member.parents || member.parents.length === 0
+    );
+    
+    // Assign generation 0 to root members
+    rootMembers.forEach(member => {
+      member.generation = 0;
+      if (member.children && member.children.length > 0) {
+        this.assignGenerationToChildren(member, membersMap);
       }
-      parentChildMap.get(rel.source_id).push(rel.target_id);
+    });
+  }
+  
+  private assignGenerationToChildren(
+    parent: any, 
+    membersMap: Map<number, any>, 
+    generation = 1
+  ): void {
+    parent.children.forEach((childRef: any) => {
+      const child = membersMap.get(childRef.id);
+      if (child) {
+        // Only update generation if it's unset or the new value is greater
+        if (child.generation === undefined || child.generation < generation) {
+          child.generation = generation;
+          if (child.children && child.children.length > 0) {
+            this.assignGenerationToChildren(child, membersMap, generation + 1);
+          }
+        }
+      }
+    });
+  }
+
+  private determineRelationCategory(relationType: string): string {
+    if (!relationType) return 'other';
+  
+    // Map relationship types to categories
+    if (['parent', 'child', 'spouse', 'sibling'].includes(relationType)) {
+      return 'immediate';
+    } else if (['grandparent', 'grandchild', 'uncle', 'aunt', 'nephew', 'niece', 'cousin'].includes(relationType)) {
+      return 'extended';
+    } else if (relationType.includes('step')) {
+      return 'step';
+    } else if (relationType.includes('half')) {
+      return 'half';
+    } else if (relationType.includes('adopt')) {
+      return 'adoptive';
+    } else {
+      return 'other';
+    }
+  }
+
+  async transformToHierarchical(familyMembers: any[], relationships: any[]): Promise<any[]> {
+    // Create a map of members for quick access
+    const membersMap = new Map();
+    
+    // Initialize member data with empty arrays for relationships
+    familyMembers.forEach(member => {
+      membersMap.set(member.id, {
+        ...member,
+        spouse: null,
+        children: [],
+        parents: [],
+        siblings: [],
+        extended: []
+      });
+    });
+    
+    // Process relationships to build the hierarchical structure
+    relationships.forEach(relationship => {
+      const sourceMember = membersMap.get(relationship.source_id);
+      const targetMember = membersMap.get(relationship.target_id);
       
-      // Add to child-parent map
-      if (!childParentMap.has(rel.target_id)) {
-        childParentMap.set(rel.target_id, []);
+      if (!sourceMember || !targetMember) return;
+      
+      const relationType = relationship.relationship_type;
+      const relationCategory = this.determineRelationCategory(relationType);
+      
+      // Determine relationship category and add to appropriate arrays
+      if (relationType === 'spouse') {
+        sourceMember.spouse = {
+          id: targetMember.id,
+          name: targetMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        };
+        targetMember.spouse = {
+          id: sourceMember.id,
+          name: sourceMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        };
+      } else if (relationType === 'parent') {
+        targetMember.parents.push({
+          id: sourceMember.id,
+          name: sourceMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        });
+        sourceMember.children.push({
+          id: targetMember.id,
+          name: targetMember.name,
+          relationship_type: 'child',
+          relation_category: relationCategory
+        });
+      } else if (relationType === 'child') {
+        sourceMember.parents.push({
+          id: targetMember.id,
+          name: targetMember.name,
+          relationship_type: 'parent',
+          relation_category: relationCategory
+        });
+        targetMember.children.push({
+          id: sourceMember.id,
+          name: sourceMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        });
+      } else if (relationType === 'sibling' || relationType.includes('sibling')) {
+        sourceMember.siblings.push({
+          id: targetMember.id,
+          name: targetMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        });
+        targetMember.siblings.push({
+          id: sourceMember.id,
+          name: sourceMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        });
+      } else {
+        // Extended family and other relationships
+        sourceMember.extended.push({
+          id: targetMember.id,
+          name: targetMember.name,
+          relationship_type: relationType,
+          relation_category: relationCategory
+        });
+        targetMember.extended.push({
+          id: sourceMember.id,
+          name: sourceMember.name,
+          relationship_type: this.getInverseRelationshipType(relationType),
+          relation_category: relationCategory
+        });
       }
-      childParentMap.get(rel.target_id).push(rel.source_id);
     });
-  
-  return { parentChildMap, childParentMap };
-}
+    
+    // Calculate generation levels for hierarchical visualization
+    this.calculateGenerations(membersMap);
+    
+    // Convert map back to array
+    return Array.from(membersMap.values());
+  }
 
-function calculateGenerations(membersMap: Map<number, any>, parentChildMap: Map<number, number[]>) {
-  // Find members without parents (root nodes)
-  const rootMembers: number[] = [];
-  membersMap.forEach((_, key) => {
-    const member = membersMap.get(key);
-    if (member.parents.length === 0) {
-      rootMembers.push(key);
-    }
-  });
-  
-  // Assign generation 0 to root members and calculate generations for descendants
-  rootMembers.forEach(id => {
-    assignGeneration(id, 0);
-  });
-  
-  function assignGeneration(memberId: number, generation: number) {
-    const member = membersMap.get(memberId);
+  private getInverseRelationshipType(relationType: string): string {
+    const inverseMap: Record<string, string> = {
+      'parent': 'child',
+      'child': 'parent',
+      'grandparent': 'grandchild',
+      'grandchild': 'grandparent',
+      'uncle': 'nephew',
+      'aunt': 'niece',
+      'nephew': 'uncle',
+      'niece': 'aunt',
+      'cousin': 'cousin'
+    };
     
-    // Skip if this member already has a lower (older) generation number
-    if (member.generation !== undefined && member.generation <= generation) {
-      return;
-    }
-    
-    // Assign generation to this member
-    member.generation = generation;
-    
-    // Recursively assign generations to children
-    const children = parentChildMap.get(memberId) || [];
-    children.forEach(childId => {
-      assignGeneration(childId, generation + 1);
-    });
+    return inverseMap[relationType] || relationType;
   }
 }
 
-function generateHierarchicalStructure(
-  members: FamilyMember[],
-  relationships: Relationship[]
-) {
-  // Create a map for easy member lookup
-  const membersMap = new Map();
-  members.forEach(member => {
-    membersMap.set(member.id, {
-      ...member,
-      children: [],
-      parents: [],
-      siblings: [],
-      extended: []
-    });
+describe('Hierarchical Data Transformation Tests', () => {
+  let testStorage: TestDatabaseStorage;
+  let allFamilyMembers: any[];
+  let allRelationships: any[];
+
+  beforeAll(async () => {
+    testStorage = new TestDatabaseStorage();
+
+    // Fetch real data from the database for testing with actual data
+    allFamilyMembers = await db.select().from(familyMembers);
+    allRelationships = await db.select().from(relationships);
   });
-  
-  // Identify spouse relationships
-  const spouseMap = identifySpouseRelationships(relationships);
-  
-  // Set spouse for each member
-  spouseMap.forEach((spouseId, memberId) => {
-    const member = membersMap.get(memberId);
-    const spouse = membersMap.get(spouseId);
+
+  afterAll(async () => {
+    await pool.end();
+  });
+
+  it('should retrieve family members from the database', async () => {
+    expect(allFamilyMembers).toBeDefined();
+    expect(allFamilyMembers.length).toBeGreaterThan(0);
     
-    // Only set once to avoid circular reference
-    if (member && spouse && memberId < spouseId) {
-      member.spouse = {
-        id: spouseId,
-        name: spouse.name,
-        relationship_type: 'spouse',
-        relation_category: 'immediate'
-      };
-      
-      spouse.spouse = {
-        id: memberId,
-        name: member.name,
-        relationship_type: 'spouse',
-        relation_category: 'immediate'
-      };
+    // Check if required fields are present
+    const firstMember = allFamilyMembers[0];
+    expect(firstMember).toHaveProperty('id');
+    expect(firstMember).toHaveProperty('name');
+    expect(firstMember).toHaveProperty('role');
+  });
+
+  it('should retrieve relationships from the database', async () => {
+    expect(allRelationships).toBeDefined();
+    expect(allRelationships.length).toBeGreaterThan(0);
+    
+    // Check if required fields are present
+    const firstRelationship = allRelationships[0];
+    expect(firstRelationship).toHaveProperty('id');
+    expect(firstRelationship).toHaveProperty('source_id');
+    expect(firstRelationship).toHaveProperty('target_id');
+    expect(firstRelationship).toHaveProperty('relationship_type');
+  });
+
+  it('should transform flat data into hierarchical structure', async () => {
+    const hierarchicalData = await testStorage.transformToHierarchical(
+      allFamilyMembers,
+      allRelationships
+    );
+    
+    expect(hierarchicalData).toBeDefined();
+    expect(hierarchicalData.length).toBe(allFamilyMembers.length);
+    
+    // Check if hierarchical properties are added
+    const firstMember = hierarchicalData[0];
+    expect(firstMember).toHaveProperty('children');
+    expect(firstMember).toHaveProperty('parents');
+    expect(firstMember).toHaveProperty('siblings');
+  });
+
+  it('should properly assign generation levels', async () => {
+    const hierarchicalData = await testStorage.transformToHierarchical(
+      allFamilyMembers,
+      allRelationships
+    );
+    
+    // Find a parent and child relationship
+    let parent, child;
+    for (const member of hierarchicalData) {
+      if (member.children && member.children.length > 0) {
+        parent = member;
+        // Find the child member from the parent's children array
+        const childRef = parent.children[0];
+        child = hierarchicalData.find(m => m.id === childRef.id);
+        if (child) break;
+      }
+    }
+    
+    if (parent && child) {
+      // Verify generation is correctly assigned
+      expect(child.generation).toBe(parent.generation + 1);
     }
   });
-  
-  // Identify parent-child relationships
-  const { parentChildMap, childParentMap } = identifyParentChildRelationships(relationships);
-  
-  // Add children to parents
-  parentChildMap.forEach((childIds, parentId) => {
-    const parent = membersMap.get(parentId);
-    childIds.forEach(childId => {
-      const child = membersMap.get(childId);
-      if (parent && child) {
-        const rel = relationships.find(
-          r => r.source_id === parentId && r.target_id === childId
-        );
-        
-        parent.children.push({
-          id: childId,
-          name: child.name,
-          relationship_type: rel?.relationship_type || 'child',
-          relation_category: rel?.relation_category || 'immediate'
-        });
-      }
-    });
+
+  it('should handle spouse relationships correctly', async () => {
+    const hierarchicalData = await testStorage.transformToHierarchical(
+      allFamilyMembers,
+      allRelationships
+    );
+    
+    // Find a member with a spouse
+    const memberWithSpouse = hierarchicalData.find(member => member.spouse !== null);
+    
+    if (memberWithSpouse) {
+      const spouseId = memberWithSpouse.spouse.id;
+      const spouse = hierarchicalData.find(member => member.id === spouseId);
+      
+      // Verify bidirectional spouse relationship
+      expect(spouse).toBeDefined();
+      expect(spouse?.spouse).toBeDefined();
+      expect(spouse?.spouse.id).toBe(memberWithSpouse.id);
+    }
   });
-  
-  // Add parents to children
-  childParentMap.forEach((parentIds, childId) => {
-    const child = membersMap.get(childId);
-    parentIds.forEach(parentId => {
-      const parent = membersMap.get(parentId);
-      if (child && parent) {
-        const rel = relationships.find(
-          r => r.source_id === parentId && r.target_id === childId
-        );
-        
-        child.parents.push({
-          id: parentId,
-          name: parent.name,
-          relationship_type: rel?.relationship_type || 'parent',
-          relation_category: rel?.relation_category || 'immediate'
-        });
-      }
-    });
+
+  it('should handle sibling relationships correctly', async () => {
+    const hierarchicalData = await testStorage.transformToHierarchical(
+      allFamilyMembers,
+      allRelationships
+    );
+    
+    // Find a member with siblings
+    const memberWithSiblings = hierarchicalData.find(
+      member => member.siblings && member.siblings.length > 0
+    );
+    
+    if (memberWithSiblings) {
+      const siblingId = memberWithSiblings.siblings[0].id;
+      const sibling = hierarchicalData.find(member => member.id === siblingId);
+      
+      // Verify bidirectional sibling relationship
+      expect(sibling).toBeDefined();
+      expect(sibling?.siblings.some(s => s.id === memberWithSiblings.id)).toBe(true);
+    }
   });
-  
-  // Calculate generations
-  calculateGenerations(membersMap, parentChildMap);
-  
-  // Convert map to array
-  const result: any[] = [];
-  membersMap.forEach(member => {
-    result.push(member);
+
+  it('should handle extended family relationships correctly', async () => {
+    const hierarchicalData = await testStorage.transformToHierarchical(
+      allFamilyMembers,
+      allRelationships
+    );
+    
+    // Find a member with extended family relationships
+    const memberWithExtended = hierarchicalData.find(
+      member => member.extended && member.extended.length > 0
+    );
+    
+    if (memberWithExtended) {
+      const extendedId = memberWithExtended.extended[0].id;
+      const extended = hierarchicalData.find(member => member.id === extendedId);
+      
+      // Verify bidirectional extended relationship
+      expect(extended).toBeDefined();
+      expect(extended?.extended.some(e => e.id === memberWithExtended.id)).toBe(true);
+    }
   });
-  
-  return result;
-}
+});

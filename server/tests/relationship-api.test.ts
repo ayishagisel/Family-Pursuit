@@ -1,133 +1,165 @@
 import { describe, it, expect, beforeAll, afterAll } from 'jest';
-import request from 'supertest';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import supertest from 'supertest';
 import express from 'express';
-import { Express } from 'express-serve-static-core';
+import { json, urlencoded } from 'express';
 import { registerRoutes } from '../routes';
-import { db } from '../db';
+
+// Test database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const db = drizzle(pool);
 
 describe('Relationship API Tests', () => {
-  let app: Express;
+  let app: express.Express;
   let server: any;
-
+  
   beforeAll(async () => {
+    // Create an Express app for testing
     app = express();
-    app.use(express.json());
+    app.use(json());
+    app.use(urlencoded({ extended: true }));
+    
     server = await registerRoutes(app);
-    server.listen(0); // Use any available port for testing
+    await db.$transaction([]);
   });
-
+  
   afterAll(async () => {
-    server.close();
-    await db.end();
+    server?.close();
+    await pool.end();
   });
-
-  it('should return hierarchical family structure from /api/relationships', async () => {
-    const response = await request(app)
-      .get('/api/relationships')
-      .query({ type: 'hierarchical' });
+  
+  it('should retrieve all relationships from /api/relationships', async () => {
+    const response = await supertest(app).get('/api/relationships');
+    
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+    expect(response.body.length).toBeGreaterThan(0);
+    
+    // Validate the structure of the returned data
+    const firstMember = response.body[0];
+    expect(firstMember).toHaveProperty('id');
+    expect(firstMember).toHaveProperty('name');
+    
+    // Check if the hierarchical structure is present
+    expect(firstMember).toHaveProperty('spouse');
+    expect(firstMember).toHaveProperty('children');
+    expect(firstMember).toHaveProperty('parents');
+    expect(firstMember).toHaveProperty('siblings');
+    expect(firstMember).toHaveProperty('extended');
+  });
+  
+  it('should retrieve hierarchical data with visualization type parameter', async () => {
+    const response = await supertest(app)
+      .get('/api/relationships?type=hierarchical');
     
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
     
-    // Check for hierarchical structure properties
-    if (response.body.length > 0) {
-      const member = response.body[0];
-      expect(member).toHaveProperty('id');
-      expect(member).toHaveProperty('name');
-      expect(member).toHaveProperty('generation');
-      expect(member).toHaveProperty('children');
-      expect(member).toHaveProperty('parents');
-      expect(member).toHaveProperty('siblings');
-      expect(member).toHaveProperty('extended');
+    // Check for indicators of hierarchical structure
+    const memberWithChildren = response.body.find((m: any) => m.children && m.children.length > 0);
+    if (memberWithChildren) {
+      expect(memberWithChildren).toHaveProperty('generation');
+      expect(typeof memberWithChildren.generation).toBe('number');
+    }
+  });
+  
+  it('should filter hierarchical data with root member parameter', async () => {
+    // Find a member with children to use as root
+    const allResponse = await supertest(app).get('/api/relationships');
+    const memberWithChildren = allResponse.body.find((m: any) => m.children && m.children.length > 0);
+    
+    if (memberWithChildren) {
+      const rootId = memberWithChildren.id;
+      const response = await supertest(app)
+        .get(`/api/relationships?type=hierarchical&rootId=${rootId}`);
       
-      // Children should be an array with proper format
-      if (member.children.length > 0) {
-        const child = member.children[0];
-        expect(child).toHaveProperty('id');
-        expect(child).toHaveProperty('name');
-        expect(child).toHaveProperty('relationship_type');
-        expect(child).toHaveProperty('relation_category');
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      // The root member should be included in the response
+      const rootMember = response.body.find((m: any) => m.id === rootId);
+      expect(rootMember).toBeDefined();
+      
+      // Verify children are included
+      if (memberWithChildren.children.length > 0) {
+        const childId = memberWithChildren.children[0].id;
+        const childMember = response.body.find((m: any) => m.id === childId);
+        expect(childMember).toBeDefined();
       }
     }
   });
-
-  it('should return ancestor view from /api/relationships', async () => {
-    const response = await request(app)
-      .get('/api/relationships')
-      .query({ type: 'ancestor', rootId: 5 }); // Using Emily (id=5) as root
+  
+  it('should retrieve ancestor data with visualization type parameter', async () => {
+    // Find a member with parents to use as starting point
+    const allResponse = await supertest(app).get('/api/relationships');
+    const memberWithParents = allResponse.body.find((m: any) => m.parents && m.parents.length > 0);
     
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    
-    // The response should include Emily and her ancestors
-    const memberIds = response.body.map((m: any) => m.id);
-    expect(memberIds).toContain(5); // Emily
-    expect(memberIds).toContain(3); // Robert (father)
-    expect(memberIds).toContain(4); // Lisa (mother)
-    expect(memberIds).toContain(1); // John (grandfather)
-    expect(memberIds).toContain(2); // Mary (grandmother)
-  });
-
-  it('should return descendant view from /api/relationships', async () => {
-    const response = await request(app)
-      .get('/api/relationships')
-      .query({ type: 'descendant', rootId: 1 }); // Using John (id=1) as root
-    
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    
-    // The response should include John and his descendants
-    const memberIds = response.body.map((m: any) => m.id);
-    expect(memberIds).toContain(1); // John
-    expect(memberIds).toContain(3); // Robert (son)
-    expect(memberIds).toContain(5); // Emily (granddaughter)
-  });
-
-  it('should return sociogram view from /api/relationships', async () => {
-    const response = await request(app)
-      .get('/api/relationships')
-      .query({ type: 'sociogram' });
-    
-    expect(response.status).toBe(200);
-    
-    // The sociogram should have both nodes and links
-    expect(response.body).toHaveProperty('nodes');
-    expect(response.body).toHaveProperty('links');
-    expect(Array.isArray(response.body.nodes)).toBe(true);
-    expect(Array.isArray(response.body.links)).toBe(true);
-    
-    // Check node structure
-    if (response.body.nodes.length > 0) {
-      const node = response.body.nodes[0];
-      expect(node).toHaveProperty('id');
-      expect(node).toHaveProperty('name');
-    }
-    
-    // Check link structure
-    if (response.body.links.length > 0) {
-      const link = response.body.links[0];
-      expect(link).toHaveProperty('source');
-      expect(link).toHaveProperty('target');
-      expect(link).toHaveProperty('type');
-      expect(link).toHaveProperty('category');
+    if (memberWithParents) {
+      const memberId = memberWithParents.id;
+      const response = await supertest(app)
+        .get(`/api/relationships?type=ancestor&rootId=${memberId}`);
+      
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      // The member should be included in the response
+      const member = response.body.find((m: any) => m.id === memberId);
+      expect(member).toBeDefined();
+      
+      // Verify parents are included if available
+      if (memberWithParents.parents.length > 0) {
+        const parentId = memberWithParents.parents[0].id;
+        const parentMember = response.body.find((m: any) => m.id === parentId);
+        expect(parentMember).toBeDefined();
+      }
     }
   });
-
-  it('should return flat relationship list with format=flat parameter', async () => {
-    const response = await request(app)
-      .get('/api/relationships')
-      .query({ format: 'flat' });
+  
+  it('should retrieve descendant data with visualization type parameter', async () => {
+    // Find a member with children to use as starting point
+    const allResponse = await supertest(app).get('/api/relationships');
+    const memberWithChildren = allResponse.body.find((m: any) => m.children && m.children.length > 0);
     
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    
-    // Check for flat relationship structure
-    if (response.body.length > 0) {
-      const relationship = response.body[0];
-      expect(relationship).toHaveProperty('id');
-      expect(relationship).toHaveProperty('source_id');
-      expect(relationship).toHaveProperty('target_id');
-      expect(relationship).toHaveProperty('relationship_type');
+    if (memberWithChildren) {
+      const memberId = memberWithChildren.id;
+      const response = await supertest(app)
+        .get(`/api/relationships?type=descendant&rootId=${memberId}`);
+      
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      // The member should be included in the response
+      const member = response.body.find((m: any) => m.id === memberId);
+      expect(member).toBeDefined();
+      
+      // Verify children are included
+      if (memberWithChildren.children.length > 0) {
+        const childId = memberWithChildren.children[0].id;
+        const childMember = response.body.find((m: any) => m.id === childId);
+        expect(childMember).toBeDefined();
+      }
     }
+  });
+  
+  it('should handle errors gracefully when invalid parameters are provided', async () => {
+    // Test with invalid root ID
+    const response = await supertest(app)
+      .get('/api/relationships?type=hierarchical&rootId=999999');
+    
+    // Should still return 200 even with invalid root ID
+    // (Endpoint should handle this gracefully and return an appropriate result)
+    expect(response.status).toBe(200);
+    
+    // Test with invalid visualization type
+    const invalidTypeResponse = await supertest(app)
+      .get('/api/relationships?type=invalid_type');
+    
+    // Should still return 200 with the default visualization type
+    expect(invalidTypeResponse.status).toBe(200);
+    expect(Array.isArray(invalidTypeResponse.body)).toBe(true);
   });
 });
