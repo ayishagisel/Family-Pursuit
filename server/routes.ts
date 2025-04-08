@@ -587,18 +587,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze family relationships for insights
   app.get("/api/analyze/relationships", async (req: Request, res: Response) => {
     try {
+      // Check if we have an OpenAI API key
+      const hasOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-');
+      
+      // If the key is not available, inform the client
+      if (!hasOpenAIKey) {
+        return res.status(400).json({ 
+          message: "OpenAI API key is missing or invalid. Please set up a valid OpenAI API key in the environment variables.",
+          error: true,
+          missing_api_key: true
+        });
+      }
+      
       const familyMembers = await storage.getAllFamilyMembers();
       const relationships = await storage.getAllRelationships();
       
       // Call our aiService to analyze relationships
       const analysis = await aiService.analyzeRelationships(familyMembers, relationships);
       
+      // Check if there was an error in the analysis
+      if (analysis.error) {
+        return res.status(500).json({ 
+          message: analysis.analysis,
+          error: true 
+        });
+      }
+      
       res.json(analysis);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error analyzing relationships:", error);
       res.status(500).json({
-        insights: "An error occurred while analyzing the family relationships.",
-        recommendations: "Try again later or contact support if the issue persists."
+        message: error.message || "An error occurred while analyzing the family relationships.",
+        error: true
       });
     }
   });
@@ -606,6 +626,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate narrative for a specific family member
   app.get("/api/family-members/:id/narrative", async (req: Request, res: Response) => {
     try {
+      // Check if we have an OpenAI API key
+      const hasOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-');
+      
+      // If the key is not available, inform the client
+      if (!hasOpenAIKey) {
+        return res.status(400).json({ 
+          message: "OpenAI API key is missing or invalid. Please set up a valid OpenAI API key in the environment variables.",
+          error: true,
+          missing_api_key: true
+        });
+      }
+      
       const memberId = parseInt(req.params.id);
       const member = await storage.getFamilyMember(memberId);
       
@@ -620,12 +652,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate the narrative using our AI service
       const narrativeResult = await aiService.generateMemberNarrative(member, allMembers, relationships);
       
+      // Check if there was an error in the narrative generation
+      if (narrativeResult.error) {
+        return res.status(500).json({ 
+          message: narrativeResult.narrative,
+          error: true 
+        });
+      }
+      
       res.json(narrativeResult);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating family member narrative:", error);
-      res.status(500).json({ 
-        narrative: "Unable to generate narrative at this time.",
-        timeline: []
+      res.status(500).json({
+        message: error.message || "Unable to generate narrative at this time.",
+        error: true
       });
     }
   });

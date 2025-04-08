@@ -72,7 +72,7 @@ export function RelationshipAnalysis() {
         )}
 
         {error && (
-          <Alert variant="warning">
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription className="mt-2">
@@ -103,7 +103,10 @@ export function RelationshipAnalysis() {
         {analysis && !error && (
           <div className="prose prose-sm max-w-none">
             <div dangerouslySetInnerHTML={{ 
-              __html: analysis.replace(/\n/g, '<br>') 
+              __html: analysis
+                .replace(/## (.*)/g, '<h2 class="text-xl font-semibold mt-4 mb-2">$1</h2>')
+                .replace(/\n\s*\n/g, '<br><br>')
+                .replace(/\n(?!\s*<)/g, '<br>') 
             }} />
             <div className="mt-4 flex justify-end">
               <Button 

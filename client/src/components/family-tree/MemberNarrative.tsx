@@ -75,7 +75,7 @@ export function MemberNarrative({ memberId, memberName }: MemberNarrativeProps) 
             <p className="text-muted-foreground text-sm">Generating narrative...</p>
           </div>
         ) : error ? (
-          <Alert variant="warning">
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription className="mt-2">
@@ -104,11 +104,13 @@ export function MemberNarrative({ memberId, memberName }: MemberNarrativeProps) 
         ) : narrative ? (
           <div className="prose prose-sm max-w-none">
             <div dangerouslySetInnerHTML={{ 
-              __html: narrative.replace(/\n/g, '<br>') 
+              __html: narrative
+                .replace(/\n\s*\n/g, '<br><br>')
+                .replace(/\n(?!\s*<)/g, '<br>')
             }} />
           </div>
         ) : (
-          <Alert variant="warning">
+          <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>No Narrative Available</AlertTitle>
             <AlertDescription>
