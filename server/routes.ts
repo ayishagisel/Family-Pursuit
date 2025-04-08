@@ -259,9 +259,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Relationships API
   app.get("/api/relationships", async (req: Request, res: Response) => {
     try {
-      // Get all flat relationships by default
-      const relationships = await storage.getAllRelationships();
-      res.json(relationships);
+      // Check if the client wants a flat list or hierarchical structure
+      const format = req.query.format as string || 'hierarchical';
+      
+      if (format === 'flat') {
+        // Return the traditional flat list of relationships if specifically requested
+        console.log("Fetching flat relationships list as requested");
+        const relationships = await storage.getAllRelationships();
+        res.json(relationships);
+      } else {
+        // By default, return the hierarchical family structure
+        console.log("Fetching hierarchical family structure for relationships endpoint");
+        
+        // Get visualization type from query parameters
+        const visualizationType = req.query.type as string || 'hierarchical';
+        const rootMemberId = req.query.root ? parseInt(req.query.root as string) : undefined;
+        
+        // Log the request parameters
+        console.log(`Visualization type: ${visualizationType}, Root member ID: ${rootMemberId || 'none'}`);
+        
+        // Get the hierarchical structure
+        const hierarchicalStructure = await storage.getHierarchicalFamilyStructure();
+        
+        // Apply filters based on visualization type
+        let filteredStructure = hierarchicalStructure;
+        
+        if (visualizationType === 'ancestor' && rootMemberId) {
+          console.log(`Filtering for ancestors of member ${rootMemberId}`);
+          filteredStructure = filterForAncestors(hierarchicalStructure, rootMemberId);
+        } 
+        else if (visualizationType === 'descendant' && rootMemberId) {
+          console.log(`Filtering for descendants of member ${rootMemberId}`);
+          filteredStructure = filterForDescendants(hierarchicalStructure, rootMemberId);
+        }
+        else if (visualizationType === 'sociogram') {
+          console.log('Preparing sociogram visualization data');
+          filteredStructure = prepareForSociogram(hierarchicalStructure);
+        }
+        
+        res.json(filteredStructure);
+      }
     } catch (error) {
       console.error("Error fetching relationships:", error);
       res.status(500).json({ message: "Failed to fetch relationships" });
