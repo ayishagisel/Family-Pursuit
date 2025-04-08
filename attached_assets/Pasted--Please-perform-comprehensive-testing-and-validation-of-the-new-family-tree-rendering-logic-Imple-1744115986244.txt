@@ -1,0 +1,43 @@
+🚀 Please perform comprehensive testing and validation of the new family tree rendering logic. Implement the following:
+
+1. Backend Testing (Server)
+   - ✅ Unit Tests: Confirm that the hierarchical data transformation logic is functioning correctly.
+     - Test retrieval of data from PostgreSQL (`server/storage.db.ts`).
+     - Test transformation from flat list to nested hierarchical structure.
+   - ✅ Integration Tests: Confirm the `/api/relationships` endpoint returns the expected hierarchical data format.
+     - Test for different relationship types: Parent-Child, Spouse, Sibling, Guardian, Half-Sibling, etc.
+     - Test for complex blended families (e.g., step-parents, adoptive families, etc.).
+
+2. Frontend Testing (Client)
+   - ✅ Visual Tests: Ensure the rendering logic in `TreeCanvas.tsx`, `TreeNode.tsx`, and `RelationshipLine.tsx` accurately represents:
+     - Parent-Child relationships (top-down rendering).
+     - Spousal relationships (side-by-side rendering).
+     - Sibling relationships (same level with appropriate spacing).
+     - Blended and extended family structures.
+   - ✅ Interaction Tests: Confirm zooming, panning, and various visualization modes are functioning properly.
+   - ✅ Component Tests: Ensure individual components (`TreeCanvas.tsx`, `TreeNode.tsx`, `RelationshipLine.tsx`) render without errors.
+
+3. End-to-End Testing (Full User Flow)
+   - ✅ Confirm successful creation, retrieval, and rendering of various family tree types via API calls.
+   - ✅ Test adding new family members and relationships, ensuring proper rendering on the tree.
+   - ✅ Test complex family trees including grandparents, aunts, uncles, cousins, etc.
+
+4. Performance Testing
+   - ✅ Confirm that rendering completes within 10 seconds with 95% accuracy for large family trees.
+   - ✅ Check backend query performance and optimize as needed.
+   - ✅ Test high-frequency operations to prevent server overload.
+
+5. Compatibility Check
+   - ✅ Ensure all previous functionalities (e.g., CRUD operations for family members, document uploads) are still functional.
+   - ✅ Confirm that the new rendering system is compatible with all existing components.
+
+6. Error Handling
+   - ✅ Provide logs for all tests, including successful cases and failures.
+   - ✅ Indicate how any errors were addressed and resolved.
+
+7. Reporting
+   - ✅ Provide a summary report detailing:
+     - Tests conducted.
+     - Logs of successful tests.
+     - Logs of errors and how they were fixed.
+     - Recommendations for further improvements if needed.
