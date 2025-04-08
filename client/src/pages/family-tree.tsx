@@ -46,6 +46,7 @@ const FamilyTreePage = () => {
   const [zoomOutTrigger, setZoomOutTrigger] = useState(false);
   const [resetViewTrigger, setResetViewTrigger] = useState(false);
   const [isInfographicDialogOpen, setIsInfographicDialogOpen] = useState(false);
+  const [visualizationType, setVisualizationType] = useState<"hierarchical" | "ancestor" | "descendant" | "sociogram">("hierarchical");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { validateFamilyMemberData, isValidating, validationResult } = useAIValidation();
@@ -313,7 +314,25 @@ const FamilyTreePage = () => {
       
       <div className="bg-white dark:bg-neutral-100 rounded-xl shadow-md overflow-hidden mb-6">
         <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
-          <div className="font-montserrat font-medium">Your Family Tree</div>
+          <div className="flex items-center gap-4">
+            <div className="font-montserrat font-medium">Your Family Tree</div>
+            
+            {/* Visualization Type Selector */}
+            <div className="flex items-center space-x-2 ml-4">
+              <span className="text-sm text-neutral-500">View:</span>
+              <select 
+                className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-md text-sm py-1 px-2"
+                onChange={(e) => setVisualizationType(e.target.value as "hierarchical" | "ancestor" | "descendant" | "sociogram")}
+                value={visualizationType}
+              >
+                <option value="hierarchical">Hierarchical</option>
+                <option value="ancestor">Ancestor Chart</option>
+                <option value="descendant">Descendant Chart</option>
+                <option value="sociogram">Sociogram</option>
+              </select>
+            </div>
+          </div>
+          
           <TreeControls 
             onSearch={handleSearch}
             onZoomIn={handleZoomIn}
@@ -330,6 +349,7 @@ const FamilyTreePage = () => {
           zoomIn={zoomInTrigger}
           zoomOut={zoomOutTrigger}
           resetView={resetViewTrigger}
+          visualizationType={visualizationType}
         />
         
         <div className="p-4 border-t border-neutral-200 flex justify-between items-center">
