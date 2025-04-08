@@ -100,6 +100,9 @@ export const aiService = {
           Role: ${member.role || 'Unknown'}
           ${member.bio ? `Bio: ${member.bio}` : ''}
           ${member.location ? `Location: ${member.location}` : ''}
+          ${member.occupation ? `Occupation: ${member.occupation}` : ''}
+          ${member.personality_traits && member.personality_traits.length > 0 ? `Personality Traits: ${member.personality_traits.join(', ')}` : ''}
+          ${member.interests && member.interests.length > 0 ? `Interests: ${member.interests.join(', ')}` : ''}
           
           Relationships:
           ${memberRelationships.map((rel: any) => {
@@ -122,7 +125,7 @@ export const aiService = {
           messages: [
             {
               role: "system",
-              content: "You are a thoughtful family historian who writes warm, personal narratives about family members. Your tone is gentle and empathetic."
+              content: "You are a thoughtful family historian who writes warm, personal narratives about family members. Your tone is gentle and empathetic. Pay special attention to personality traits, interests, and occupation when crafting the narrative to make it feel personalized and authentic."
             },
             {
               role: "user",
@@ -144,6 +147,43 @@ export const aiService = {
       // We should never reach here
     } catch (error: any) {
       console.error("Error generating member narrative:", error);
+      
+      // If we hit a rate limit or quota error, use mock data instead
+      if (error.status === 429 || (error.code && error.code === 'insufficient_quota')) {
+        console.log("Using fallback narrative due to API rate limit or quota error");
+        return {
+          narrative: `# ${member.name}'s Family Story
+
+${member.name} is a ${member.role.toLowerCase()} in the family known for ${
+  member.personality_traits && member.personality_traits.length > 0 
+    ? `being ${member.personality_traits.slice(0, 3).join(', ')} and `
+    : ''
+}${
+  member.interests && member.interests.length > 0
+    ? `enjoying ${member.interests.slice(0, 3).join(', ')}`
+    : 'their unique contributions to family gatherings'
+}.
+
+${member.occupation 
+  ? `As a ${member.occupation}, they bring valuable perspective to family discussions.` 
+  : ''}
+
+They maintain close relationships with several family members and play an important role in the family structure. Their presence enriches family gatherings with ${
+  member.personality_traits && member.personality_traits.length > 0
+    ? member.personality_traits[0]
+    : 'warmth'
+} and ${
+  member.interests && member.interests.length > 0
+    ? `stories about their experiences with ${member.interests[0]}`
+    : 'unique insights'
+}.
+
+*Note: This is a simplified narrative generated when the AI service is unavailable. A more personalized narrative would be created when the service is accessible.*`,
+          fallback: true
+        };
+      }
+      
+      // Otherwise return the error
       return {
         narrative: `Error generating narrative: ${error.message}`,
         error: true
@@ -215,10 +255,17 @@ export const aiService = {
           Family Members: ${familyMembers.length} members
           Relationships: ${relationships.length} connections
           
-          Member roles:
-          ${familyMembers.map((member: any) => 
-            `- ${member.name}: ${member.role || 'family member'}${member.birth_date ? ` (born ${new Date(member.birth_date).toLocaleDateString()})` : ''}`
-          ).join('\n')}
+          Member details:
+          ${familyMembers.map((member: any) => {
+            const traits = member.personality_traits && member.personality_traits.length > 0 ? 
+              ` [Traits: ${member.personality_traits.slice(0, 3).join(', ')}]` : '';
+            const interests = member.interests && member.interests.length > 0 ? 
+              ` [Interests: ${member.interests.slice(0, 3).join(', ')}]` : '';
+            const occupation = member.occupation ? ` [${member.occupation}]` : '';
+            
+            return `- ${member.name}: ${member.role || 'family member'}${occupation}${member.birth_date ? 
+              ` (born ${new Date(member.birth_date).toLocaleDateString()})` : ''}${traits}${interests}`;
+          }).join('\n')}
           
           Relationship types:
           ${Array.from(new Set(relationships.map((rel: any) => rel.relationship_type))).join(', ')}
@@ -229,8 +276,9 @@ export const aiService = {
           Please provide a warm, insightful analysis of this family structure. Include observations about:
           1. Overall family composition and generational spread
           2. Notable relationship patterns
-          3. Unique aspects of this family's connections
-          4. Strengths that could be nurtured
+          3. How personality traits and interests might influence family dynamics
+          4. Unique aspects of this family's connections
+          5. Strengths that could be nurtured
           
           Format your response with clear section headings using markdown (##). Keep it under 400 words.
         `;
@@ -241,7 +289,7 @@ export const aiService = {
           messages: [
             {
               role: "system",
-              content: "You are a compassionate family relationship expert who provides warm, supportive insights about families."
+              content: "You are a compassionate family relationship expert who provides warm, supportive insights about families. Consider how personality traits and interests influence family dynamics. Look for patterns and complementary traits across family members that might strengthen relationships or cause occasional tension."
             },
             {
               role: "user",
@@ -261,6 +309,84 @@ export const aiService = {
       throw new Error("No AI service available to generate relationship analysis.");
     } catch (error: any) {
       console.error("Error analyzing relationships:", error);
+      
+      // If we hit a rate limit or quota error, use mock data instead
+      if (error.status === 429 || (error.code && error.code === 'insufficient_quota')) {
+        console.log("Using fallback relationship analysis due to API rate limit or quota error");
+        
+        // Count generations by analyzing birth years
+        const birthYears = familyMembers
+          .filter((m: any) => m.birth_date)
+          .map((m: any) => new Date(m.birth_date).getFullYear());
+        
+        // Handle the case where there are no birth years or too few to analyze
+        let generationSpan = 3; // Default if we can't calculate
+        if (birthYears.length > 0) {
+          const oldestYear = Math.min(...birthYears);
+          const youngestYear = Math.max(...birthYears);
+          generationSpan = Math.floor((youngestYear - oldestYear) / 20) || 1; // At least 1
+        }
+        
+        // Count relationship types
+        const relationTypes = relationships.reduce((acc: Record<string, number>, rel: any) => {
+          const type = rel.relationship_type.toLowerCase();
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {});
+        
+        const parentChildCount = (relationTypes['parent'] || 0) + (relationTypes['child'] || 0);
+        const siblingCount = relationTypes['sibling'] || 0;
+        const spouseCount = relationTypes['spouse'] || 0;
+        
+        // Gather personality traits and interests to mention in the analysis
+        const traits = new Set<string>();
+        const interests = new Set<string>();
+        
+        familyMembers.forEach((member: any) => {
+          if (member.personality_traits) {
+            member.personality_traits.forEach((trait: string) => traits.add(trait));
+          }
+          if (member.interests) {
+            member.interests.forEach((interest: string) => interests.add(interest));
+          }
+        });
+        
+        const commonTraits = Array.from(traits).slice(0, 5);
+        const commonInterests = Array.from(interests).slice(0, 5);
+        
+        return {
+          analysis: `
+## Family Structure Analysis
+
+This family consists of ${familyMembers.length} members connected through ${relationships.length} different relationships, forming a rich tapestry of connections spanning approximately ${generationSpan || 3} generations. The family demonstrates a beautiful blend of traditional and modern family structures, with a notable emphasis on maintaining strong bonds across generations.
+
+## Generational Composition
+
+The family has a well-balanced generational spread, with members born across different decades, providing a wealth of varied perspectives and experiences. This multi-generational aspect creates wonderful opportunities for wisdom sharing between older and younger family members.
+
+## Relationship Patterns
+
+Relationship patterns show a healthy distribution of ${parentChildCount} parent-child connections, ${siblingCount || 'several'} sibling relationships, and ${spouseCount || 'multiple'} spouse partnerships. The family demonstrates resilience through its interconnected support network where extended family members actively participate in each other's lives.
+
+## Personality Dynamics
+
+The family shows a diverse mix of personality traits including ${commonTraits.join(', ')}. This variety creates a dynamic where different members can complement each other's strengths. Family members share interests in ${commonInterests.join(', ')}, which provides natural opportunities for bonding and shared activities.
+
+## Unique Aspects
+
+What makes this family unique is its embrace of both biological and chosen family connections. The family tree shows thoughtful integration of step-relationships, in-laws, and other non-traditional bonds that enrich the family experience.
+
+## Nurturing Strengths
+
+The family's strengths lie in its commitment to maintaining connections despite geographical distances and generational differences. Consider nurturing these strengths through regular family gatherings, shared digital spaces for remote members, and intentional mentoring relationships between generations. Encouraging the documentation of family stories and traditions would further strengthen the sense of shared identity that is already evident in this vibrant family network.
+
+*Note: This is a simplified analysis generated when the AI service is unavailable. A more personalized analysis would be created when the service is accessible.*
+          `,
+          fallback: true
+        };
+      }
+      
+      // Otherwise return the error
       return {
         analysis: `Error analyzing relationships: ${error.message}`,
         error: true

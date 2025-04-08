@@ -17,7 +17,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { InfoIcon } from 'lucide-react';
 
 // Login form validation schema
 const loginSchema = z.object({
@@ -78,6 +79,18 @@ export default function LoginPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          
+          <Alert variant="default" className="mb-4 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+            <InfoIcon className="h-4 w-4" />
+            <AlertTitle>Default Login</AlertTitle>
+            <AlertDescription>
+              <p>Use these credentials to log in:</p>
+              <ul className="list-disc pl-5 mt-1 text-sm">
+                <li><strong>Username:</strong> admin</li>
+                <li><strong>Password:</strong> password123</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

@@ -43,6 +43,9 @@ export const familyMembers = pgTable("family_members", {
   birth_date: timestamp("birth_date"),
   location: text("location"),
   bio: text("bio"),
+  personality_traits: text("personality_traits").array(),
+  interests: text("interests").array(),
+  occupation: text("occupation"),
   metadata: jsonb("metadata").default("{}"),
 });
 
@@ -55,6 +58,9 @@ export const insertFamilyMemberSchema = createInsertSchema(familyMembers).pick({
   birth_date: true,
   location: true,
   bio: true,
+  personality_traits: true,
+  interests: true,
+  occupation: true,
   metadata: true,
 });
 
