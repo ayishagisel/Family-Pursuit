@@ -134,6 +134,7 @@ export class DatabaseStorage implements IStorage {
   
   /**
    * Get hierarchical family structure with nested relationships
+   * Improved version with better organization and more complete relationship handling
    */
   async getHierarchicalFamilyStructure(): Promise<any[]> {
     try {
@@ -150,6 +151,7 @@ export class DatabaseStorage implements IStorage {
       const membersMap = new Map();
       allMembers.forEach(member => {
         membersMap.set(member.id, {
+          // Basic information
           id: member.id,
           name: member.name,
           role: member.role,
@@ -161,12 +163,28 @@ export class DatabaseStorage implements IStorage {
           interests: member.interests,
           occupation: member.occupation,
           avatarUrl: member.avatarUrl,
-          // Relationship placeholders
-          spouse: null,
-          children: [],
-          parents: [],
-          siblings: [],
-          extended: [] // For other relationships (aunt, uncle, cousin, etc.)
+          
+          // Relationship collections
+          spouses: [],                       // All spouses (can have multiple in complex families)
+          children: [],                      // All children (biological, adoptive, step)
+          parents: [],                       // All parents (biological, adoptive, step)
+          siblings: [],                      // All siblings (full, half, step)
+          extended: [],                      // Extended family (aunts, uncles, cousins, etc.)
+          
+          // Relationship counts for visualization
+          childrenCount: 0,
+          siblingsCount: 0,
+          extendedCount: 0,
+          
+          // Relationship types organized by category
+          relationships: {
+            immediate: [],     // parent, child, spouse, sibling
+            extended: [],      // grandparent, aunt, uncle, cousin, etc.
+            adoptive: [],      // adoptive-parent, adoptive-child
+            step: [],          // step-parent, step-child, step-sibling
+            half: [],          // half-sibling
+            other: []          // godparent, family-friend, etc.
+          }
         });
       });
       
@@ -180,136 +198,211 @@ export class DatabaseStorage implements IStorage {
           return;
         }
         
-        // Process based on relationship type
-        switch (rel.relationship_type.toLowerCase()) {
-          case 'spouse':
-            sourceMember.spouse = {
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: rel.relation_category
-            };
-            break;
-            
-          case 'parent':
-            targetMember.parents.push({
-              id: sourceMember.id,
-              name: sourceMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: rel.relation_category
-            });
-            sourceMember.children.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: 'child',
-              relation_category: rel.relation_category
-            });
-            break;
-            
-          case 'child':
-            sourceMember.parents.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: 'parent',
-              relation_category: rel.relation_category
-            });
-            targetMember.children.push({
-              id: sourceMember.id,
-              name: sourceMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: rel.relation_category
-            });
-            break;
-            
-          case 'sibling':
-          case 'step-sibling':
-          case 'half-sibling':
-            sourceMember.siblings.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: rel.relation_category
-            });
-            break;
-            
-          case 'adoptive-parent':
-            targetMember.parents.push({
-              id: sourceMember.id,
-              name: sourceMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: 'adoptive'
-            });
-            sourceMember.children.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: 'adoptive-child',
-              relation_category: 'adoptive'
-            });
-            break;
-            
-          case 'adoptive-child':
-            sourceMember.parents.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: 'adoptive-parent',
-              relation_category: 'adoptive'
-            });
-            targetMember.children.push({
-              id: sourceMember.id,
-              name: sourceMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: 'adoptive'
-            });
-            break;
-            
-          case 'step-parent':
-            targetMember.parents.push({
-              id: sourceMember.id,
-              name: sourceMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: 'step'
-            });
-            sourceMember.children.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: 'step-child',
-              relation_category: 'step'
-            });
-            break;
-            
-          case 'step-child':
-            sourceMember.parents.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: 'step-parent',
-              relation_category: 'step'
-            });
-            targetMember.children.push({
-              id: sourceMember.id,
-              name: sourceMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: 'step'
-            });
-            break;
-            
-          default:
-            // Handle extended family and other relationship types
-            sourceMember.extended.push({
-              id: targetMember.id,
-              name: targetMember.name,
-              relationship_type: rel.relationship_type,
-              relation_category: rel.relation_category
-            });
-            break;
+        // Create relationship objects with full information
+        const sourceToTargetRel = {
+          id: targetMember.id,
+          name: targetMember.name,
+          role: targetMember.role,
+          relationship_type: rel.relationship_type,
+          relation_category: rel.relation_category || 'immediate',
+          relationship_id: rel.id,
+          notes: rel.notes || null,
+          birth_date: targetMember.birth_date,
+          avatarUrl: targetMember.avatarUrl
+        };
+        
+        const targetToSourceRel = {
+          id: sourceMember.id,
+          name: sourceMember.name,
+          role: sourceMember.role,
+          relationship_type: this.getInverseRelationshipType(rel.relationship_type),
+          relation_category: rel.relation_category || 'immediate',
+          relationship_id: rel.id,
+          notes: rel.notes || null,
+          birth_date: sourceMember.birth_date,
+          avatarUrl: sourceMember.avatarUrl
+        };
+        
+        // Add to category-based collections
+        const category = rel.relation_category || this.determineRelationCategory(rel.relationship_type);
+        if (sourceMember.relationships[category]) {
+          sourceMember.relationships[category].push(sourceToTargetRel);
+        }
+        
+        if (targetMember.relationships[category]) {
+          targetMember.relationships[category].push(targetToSourceRel);
+        }
+        
+        // Process based on relationship type for specific collections
+        const relType = rel.relationship_type.toLowerCase();
+        
+        // Handle spouse relationships
+        if (relType === 'spouse') {
+          sourceMember.spouses.push(sourceToTargetRel);
+          targetMember.spouses.push(targetToSourceRel);
+          
+          // Set primary spouse if not already set (for visualization)
+          if (!sourceMember.spouse) {
+            sourceMember.spouse = sourceToTargetRel;
+          }
+          if (!targetMember.spouse) {
+            targetMember.spouse = targetToSourceRel;
+          }
+        }
+        // Handle parent/child relationships
+        else if (relType === 'parent' || relType === 'adoptive-parent' || relType === 'step-parent') {
+          // Add child to parent's children collection
+          sourceMember.children.push(sourceToTargetRel);
+          sourceMember.childrenCount++;
+          
+          // Add parent to child's parents collection
+          targetMember.parents.push(targetToSourceRel);
+        }
+        else if (relType === 'child' || relType === 'adoptive-child' || relType === 'step-child') {
+          // Add parent to child's parents collection
+          sourceMember.parents.push(sourceToTargetRel);
+          
+          // Add child to parent's children collection
+          targetMember.children.push(targetToSourceRel);
+          targetMember.childrenCount++;
+        }
+        // Handle sibling relationships
+        else if (relType === 'sibling' || relType === 'step-sibling' || relType === 'half-sibling') {
+          sourceMember.siblings.push(sourceToTargetRel);
+          sourceMember.siblingsCount++;
+          
+          targetMember.siblings.push(targetToSourceRel);
+          targetMember.siblingsCount++;
+        }
+        // Handle extended family relationships
+        else if (['aunt', 'uncle', 'cousin', 'niece', 'nephew', 'grandparent', 'grandchild'].includes(relType)) {
+          sourceMember.extended.push(sourceToTargetRel);
+          sourceMember.extendedCount++;
+          
+          targetMember.extended.push(targetToSourceRel);
+          targetMember.extendedCount++;
+        }
+        else {
+          // Handle all other relationship types
+          sourceMember.extended.push(sourceToTargetRel);
+          sourceMember.extendedCount++;
+          
+          targetMember.extended.push(targetToSourceRel);
+          targetMember.extendedCount++;
         }
       });
       
-      // 4. Convert the map to an array
-      return Array.from(membersMap.values());
+      // 4. Add generation and position information for better visualization
+      this.calculateGenerations(membersMap);
+      
+      // 5. Convert the map to an array
+      const hierarchicalStructure = Array.from(membersMap.values());
+      console.log(`Generated hierarchical structure with ${hierarchicalStructure.length} family members`);
+      
+      return hierarchicalStructure;
       
     } catch (error) {
       console.error("Error building hierarchical family structure:", error);
       throw error;
+    }
+  }
+  
+  /**
+   * Calculate generation levels for family members
+   * This helps with visualizing the family tree in a hierarchical layout
+   */
+  private calculateGenerations(membersMap: Map<number, any>): void {
+    // Find root members (those without parents)
+    const rootMembers = Array.from(membersMap.values()).filter(member => member.parents.length === 0);
+    
+    // Initialize generation counter
+    const generations = new Map<number, number>();
+    
+    // Assign generation 0 to root members
+    rootMembers.forEach(root => {
+      assignGeneration(root.id, 0);
+    });
+    
+    // Recursively assign generations to descendants
+    function assignGeneration(memberId: number, generation: number) {
+      // Skip if already processed with a lower generation number
+      if (generations.has(memberId) && generations.get(memberId)! <= generation) {
+        return;
+      }
+      
+      // Set generation
+      generations.set(memberId, generation);
+      const member = membersMap.get(memberId);
+      if (!member) return;
+      
+      // Set generation on the member object
+      member.generation = generation;
+      
+      // Process children with incremented generation
+      member.children.forEach((child: any) => {
+        assignGeneration(child.id, generation + 1);
+      });
+      
+      // Process spouses with same generation
+      member.spouses.forEach((spouse: any) => {
+        assignGeneration(spouse.id, generation);
+      });
+    }
+    
+    // Log generations for debugging
+    console.log(`Assigned generations to ${generations.size} family members`);
+  }
+  
+  /**
+   * Determine the appropriate relationship category based on relationship type
+   */
+  private determineRelationCategory(relationType: string): string {
+    const type = relationType.toLowerCase();
+    
+    if (type.includes('adoptive')) return 'adoptive';
+    if (type.includes('step')) return 'step';
+    if (type.includes('half')) return 'half';
+    
+    if (['parent', 'child', 'spouse', 'sibling', 'guardian'].includes(type)) {
+      return 'immediate';
+    }
+    
+    if (['grandparent', 'grandchild', 'aunt', 'uncle', 'cousin', 'niece', 'nephew'].includes(type)) {
+      return 'extended';
+    }
+    
+    return 'other';
+  }
+  
+  /**
+   * Get the inverse relationship type
+   */
+  private getInverseRelationshipType(relationType: string): string {
+    const type = relationType.toLowerCase();
+    
+    switch (type) {
+      case 'parent': return 'child';
+      case 'child': return 'parent';
+      case 'grandparent': return 'grandchild';
+      case 'grandchild': return 'grandparent';
+      case 'aunt': return 'niece/nephew';
+      case 'uncle': return 'niece/nephew';
+      case 'niece': return 'aunt/uncle';
+      case 'nephew': return 'aunt/uncle';
+      case 'adoptive-parent': return 'adoptive-child';
+      case 'adoptive-child': return 'adoptive-parent';
+      case 'step-parent': return 'step-child';
+      case 'step-child': return 'step-parent';
+      case 'godparent': return 'godchild';
+      case 'godchild': return 'godparent';
+      // These relationships are symmetric
+      case 'spouse': return 'spouse';
+      case 'sibling': return 'sibling';
+      case 'cousin': return 'cousin';
+      case 'half-sibling': return 'half-sibling';
+      case 'step-sibling': return 'step-sibling';
+      case 'in-law': return 'in-law';
+      default: return `related-to`;
     }
   }
   

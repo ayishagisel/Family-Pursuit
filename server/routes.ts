@@ -259,32 +259,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Relationships API
   app.get("/api/relationships", async (req: Request, res: Response) => {
     try {
-      const hierarchical = req.query.hierarchical === 'true';
-      
-      if (hierarchical) {
-        console.log("Fetching hierarchical family structure");
-        const hierarchicalStructure = await storage.getHierarchicalFamilyStructure();
-        res.json(hierarchicalStructure);
-      } else {
-        const relationships = await storage.getAllRelationships();
-        res.json(relationships);
-      }
+      // Get all flat relationships by default
+      const relationships = await storage.getAllRelationships();
+      res.json(relationships);
     } catch (error) {
       console.error("Error fetching relationships:", error);
       res.status(500).json({ message: "Failed to fetch relationships" });
     }
   });
   
+  // Dedicated endpoints for hierarchical family structure
   app.get("/api/family/hierarchical", async (req: Request, res: Response) => {
     try {
       console.log("Fetching hierarchical family structure from dedicated endpoint");
+      
+      // Get visualization type from query parameters (default to full hierarchical)
+      const visualizationType = req.query.type as string || 'hierarchical';
+      const rootMemberId = req.query.root ? parseInt(req.query.root as string) : undefined;
+      
+      // Log the request parameters
+      console.log(`Visualization type: ${visualizationType}, Root member ID: ${rootMemberId || 'none'}`);
+      
+      // Get the hierarchical structure
       const hierarchicalStructure = await storage.getHierarchicalFamilyStructure();
-      res.json(hierarchicalStructure);
+      
+      // If we have a filter for specific visualization type, apply it
+      let filteredStructure = hierarchicalStructure;
+      
+      if (visualizationType === 'ancestor' && rootMemberId) {
+        // For ancestor chart, filter to include only the ancestors of the specified member
+        console.log(`Filtering for ancestors of member ${rootMemberId}`);
+        filteredStructure = filterForAncestors(hierarchicalStructure, rootMemberId);
+      } 
+      else if (visualizationType === 'descendant' && rootMemberId) {
+        // For descendant chart, filter to include only the descendants of the specified member
+        console.log(`Filtering for descendants of member ${rootMemberId}`);
+        filteredStructure = filterForDescendants(hierarchicalStructure, rootMemberId);
+      }
+      else if (visualizationType === 'sociogram') {
+        // For sociogram, keep all relationships but reorganize for network visualization
+        console.log('Preparing sociogram visualization data');
+        filteredStructure = prepareForSociogram(hierarchicalStructure);
+      }
+      
+      // Return the appropriate data structure based on visualization type
+      res.json(filteredStructure);
+      
     } catch (error) {
       console.error("Error fetching hierarchical family structure:", error);
       res.status(500).json({ message: "Failed to fetch hierarchical family structure" });
     }
   });
+  
+  // Helper function to filter structure for ancestor chart
+  function filterForAncestors(members: any[], rootId: number): any[] {
+    // Find the root member
+    const rootMember = members.find(m => m.id === rootId);
+    if (!rootMember) return members;
+    
+    // Get all parent IDs
+    const ancestorIds = new Set<number>();
+    
+    // Recursively collect all ancestors
+    function collectAncestors(member: any) {
+      if (!member || !member.parents) return;
+      
+      member.parents.forEach((parent: any) => {
+        ancestorIds.add(parent.id);
+        const parentMember = members.find(m => m.id === parent.id);
+        if (parentMember) {
+          collectAncestors(parentMember);
+        }
+      });
+    }
+    
+    // Start collection from the root member
+    collectAncestors(rootMember);
+    
+    // Add the root member to the set
+    ancestorIds.add(rootId);
+    
+    // Filter the members to include only ancestors and the root
+    return members.filter(member => ancestorIds.has(member.id));
+  }
+  
+  // Helper function to filter structure for descendant chart
+  function filterForDescendants(members: any[], rootId: number): any[] {
+    // Find the root member
+    const rootMember = members.find(m => m.id === rootId);
+    if (!rootMember) return members;
+    
+    // Get all descendant IDs
+    const descendantIds = new Set<number>();
+    
+    // Recursively collect all descendants
+    function collectDescendants(member: any) {
+      if (!member || !member.children) return;
+      
+      member.children.forEach((child: any) => {
+        descendantIds.add(child.id);
+        const childMember = members.find(m => m.id === child.id);
+        if (childMember) {
+          collectDescendants(childMember);
+        }
+      });
+    }
+    
+    // Start collection from the root member
+    collectDescendants(rootMember);
+    
+    // Add the root member to the set
+    descendantIds.add(rootId);
+    
+    // Filter the members to include only descendants and the root
+    return members.filter(member => descendantIds.has(member.id));
+  }
+  
+  // Helper function to prepare data for sociogram visualization
+  function prepareForSociogram(members: any[]): any {
+    // Extract nodes and links for a network diagram
+    const nodes = members.map(member => ({
+      id: member.id,
+      name: member.name,
+      role: member.role,
+      avatarUrl: member.avatarUrl,
+      childrenCount: member.childrenCount || 0,
+      siblingsCount: member.siblingsCount || 0,
+      extendedCount: member.extendedCount || 0,
+      generation: member.generation || 0
+    }));
+    
+    // Create links from all relationships
+    const links: Array<{source: number, target: number, type: string, category: string}> = [];
+    
+    members.forEach(member => {
+      // Add spouse links
+      member.spouses?.forEach((spouse: any) => {
+        links.push({
+          source: member.id,
+          target: spouse.id,
+          type: 'spouse',
+          category: spouse.relation_category || 'immediate'
+        });
+      });
+      
+      // Add parent-child links
+      member.children?.forEach((child: any) => {
+        links.push({
+          source: member.id,
+          target: child.id,
+          type: child.relationship_type,
+          category: child.relation_category || 'immediate'
+        });
+      });
+      
+      // Add sibling links
+      member.siblings?.forEach((sibling: any) => {
+        // Only add if source id < target id to avoid duplicates
+        if (member.id < sibling.id) {
+          links.push({
+            source: member.id,
+            target: sibling.id,
+            type: sibling.relationship_type,
+            category: sibling.relation_category || 'immediate'
+          });
+        }
+      });
+    });
+    
+    return { nodes, links };
+  }
 
   app.post("/api/relationships", async (req: Request, res: Response) => {
     try {
