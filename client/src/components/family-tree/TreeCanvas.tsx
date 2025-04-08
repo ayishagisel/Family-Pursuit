@@ -6,7 +6,7 @@ import { FamilyMember, Relationship } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 
 // Define visualization types
-type VisualizationType = "hierarchical" | "ancestor" | "descendant" | "sociogram";
+type VisualizationType = "hierarchical" | "ancestor" | "descendant" | "sociogram" | "flat";
 
 // Define hierarchical family member structure
 interface HierarchicalFamilyMember {
@@ -21,6 +21,7 @@ interface HierarchicalFamilyMember {
   interests: string[];
   occupation: string;
   avatarUrl: string | null;
+  generation?: number; // Generation information for hierarchical layouts
   spouse?: {
     id: number;
     name: string;
@@ -81,15 +82,16 @@ const TreeCanvas = ({
     queryKey: ["/api/family-members"],
   });
 
-  // Fetch relationships (flat structure)
+  // Fetch relationships based on visualization type
   const { data: relationships = [], isLoading: isRelationshipsLoading } = useQuery<Relationship[]>({
-    queryKey: ["/api/relationships"],
+    queryKey: ["/api/relationships", { format: "flat" }],
+    enabled: visualizationType === "flat",
   });
   
-  // Fetch hierarchical family structure
+  // Fetch hierarchical family structure with appropriate visualization type
   const { data: hierarchicalFamily = [], isLoading: isHierarchicalLoading } = useQuery<HierarchicalFamilyMember[]>({
-    queryKey: ["/api/family/hierarchical"],
-    enabled: visualizationType === "hierarchical",
+    queryKey: ["/api/relationships", { type: visualizationType }],
+    enabled: visualizationType !== "flat",
   });
 
   // Node dimensions
@@ -102,65 +104,117 @@ const TreeCanvas = ({
   const calculateNodePositions = () => {
     const positions: Record<number, { x: number, y: number }> = {};
     
-    if (visualizationType === "hierarchical" && hierarchicalFamily.length > 0) {
-      // Process hierarchical structure
-      let currentX = 100;
-      let familyUnitWidth = 0;
+    if (visualizationType !== "flat" && hierarchicalFamily.length > 0) {
+      // Create a map of nodes by generation for hierarchical layout
+      const nodesByGeneration: Record<number, { id: number, hasSpouse: boolean }[]> = {};
+      const processedNodes = new Set<number>();
       
-      // First pass - calculate positions for all members with spouses laid out horizontally
-      hierarchicalFamily.forEach((member, index) => {
-        // Position for this member
-        const hasPrimarySpouse = member.spouse !== undefined;
+      // First pass - group nodes by generation
+      hierarchicalFamily.forEach(member => {
+        // Determine generation (default to 0 if not available)
+        const generation = member.generation || 0;
         
-        // If this is the start of a family unit (has spouse or children)
-        if (hasPrimarySpouse || member.children.length > 0) {
-          // Calculate width for this family unit
-          familyUnitWidth = hasPrimarySpouse ? HORIZONTAL_SPACING * 2 : HORIZONTAL_SPACING;
+        // Initialize array for this generation if it doesn't exist
+        if (!nodesByGeneration[generation]) {
+          nodesByGeneration[generation] = [];
+        }
+        
+        // Add this member to its generation group
+        nodesByGeneration[generation].push({
+          id: member.id,
+          hasSpouse: !!member.spouse
+        });
+        
+        // Mark this node as processed
+        processedNodes.add(member.id);
+        
+        // If this member has a spouse, add the spouse to the same generation
+        if (member.spouse && !processedNodes.has(member.spouse.id)) {
+          nodesByGeneration[generation].push({
+            id: member.spouse.id,
+            hasSpouse: true
+          });
+          processedNodes.add(member.spouse.id);
+        }
+      });
+      
+      // Second pass - position nodes by generation
+      const generations = Object.keys(nodesByGeneration).map(Number).sort((a, b) => a - b);
+      
+      generations.forEach((generation, genIndex) => {
+        const nodesInGeneration = nodesByGeneration[generation];
+        const y = 100 + (genIndex * VERTICAL_SPACING);
+        
+        // Calculate total width needed for this generation
+        const totalWidth = nodesInGeneration.length * HORIZONTAL_SPACING;
+        const startX = 500 - (totalWidth / 2); // Center in the SVG
+        
+        // Position each node in this generation
+        nodesInGeneration.forEach((node, nodeIndex) => {
+          const spouseOffset = node.hasSpouse ? HORIZONTAL_SPACING / 2 : 0;
+          positions[node.id] = {
+            x: startX + (nodeIndex * HORIZONTAL_SPACING) - spouseOffset,
+            y: y
+          };
+        });
+      });
+      
+      // Third pass - process spouse relationships to ensure they're side by side
+      hierarchicalFamily.forEach(member => {
+        if (member.spouse) {
+          const memberPos = positions[member.id];
+          const spousePos = positions[member.spouse.id];
           
-          // Position this member
-          positions[member.id] = { 
-            x: currentX, 
-            y: 100  // Top level
+          // Adjust positions to ensure spouses are side by side
+          // Only adjust if they're not already positioned close together
+          if (Math.abs(memberPos.x - spousePos.x) > HORIZONTAL_SPACING * 1.5) {
+            // Position spouse to the right of the member
+            positions[member.spouse.id] = {
+              x: memberPos.x + HORIZONTAL_SPACING,
+              y: memberPos.y
+            };
+          }
+        }
+      });
+
+      // Handle special visualization types
+      if (visualizationType === "ancestor" || visualizationType === "descendant") {
+        // For ancestor/descendant charts, use a more vertical layout
+        generations.forEach((generation, genIndex) => {
+          const nodesInGeneration = nodesByGeneration[generation];
+          
+          // Position nodes more vertically for ancestor/descendant charts
+          const y = 100 + (genIndex * VERTICAL_SPACING * 1.2); // More vertical spacing
+          
+          nodesInGeneration.forEach((node, nodeIndex) => {
+            if (positions[node.id]) {
+              positions[node.id].y = y;
+            }
+          });
+        });
+      } else if (visualizationType === "sociogram") {
+        // For sociogram, use a radial layout
+        const centerX = 500;
+        const centerY = 300;
+        const radius = 200;
+        
+        hierarchicalFamily.forEach((member, index) => {
+          const angle = (index / hierarchicalFamily.length) * Math.PI * 2;
+          positions[member.id] = {
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius
           };
           
           // Position spouse if exists
-          if (hasPrimarySpouse) {
-            positions[member.spouse!.id] = { 
-              x: currentX + HORIZONTAL_SPACING, 
-              y: 100 
+          if (member.spouse) {
+            const spouseAngle = angle + (0.1 * Math.PI);
+            positions[member.spouse.id] = {
+              x: centerX + Math.cos(spouseAngle) * radius,
+              y: centerY + Math.sin(spouseAngle) * radius
             };
           }
-          
-          // Position children below
-          const childrenCount = member.children.length;
-          if (childrenCount > 0) {
-            const childrenStartX = currentX - ((childrenCount - 1) * HORIZONTAL_SPACING / 2);
-            
-            member.children.forEach((child, childIndex) => {
-              positions[child.id] = { 
-                x: childrenStartX + (childIndex * HORIZONTAL_SPACING), 
-                y: 250  // Second level 
-              };
-            });
-            
-            // Adjust family unit width if children take more space
-            const childrenWidth = childrenCount * HORIZONTAL_SPACING;
-            if (childrenWidth > familyUnitWidth) {
-              familyUnitWidth = childrenWidth;
-            }
-          }
-          
-          // Move to next family unit position
-          currentX += familyUnitWidth + 50; // Add gap between family units
-        } else {
-          // Position individual members without family units
-          positions[member.id] = { 
-            x: currentX, 
-            y: 100 
-          };
-          currentX += HORIZONTAL_SPACING;
-        }
-      });
+        });
+      }
       
       return positions;
     } else {
@@ -428,7 +482,7 @@ const TreeCanvas = ({
       >
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
           {/* Relationship Lines */}
-          {visualizationType === "hierarchical" 
+          {visualizationType !== "flat"
             ? renderHierarchicalRelationships() 
             : relationships.map((relationship) => {
                 const sourceMember = familyMembers.find((m) => m.id === relationship.source_id);
