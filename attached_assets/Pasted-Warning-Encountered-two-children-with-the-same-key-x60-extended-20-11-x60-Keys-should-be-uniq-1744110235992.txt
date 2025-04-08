@@ -1,0 +1,39 @@
+Warning: Encountered two children with the same key, &#x60;extended-20-11&#x60;. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at g
+    at svg
+    at div
+    at TreeCanvas (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/components/family-tree/TreeCanvas.tsx:24:3)
+    at div
+    at FamilyTreePage (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/pages/family-tree.tsx:49:47)
+    at ProtectedRoute (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/components/auth/ProtectedRoute.tsx:23:14)
+    at component
+    at Route (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=d643a88e:323:16)
+    at Switch (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=d643a88e:379:17)
+    at main
+    at div
+    at MainLayout (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/components/layout/MainLayout.tsx:19:23)
+    at Router (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/App.tsx?v=Y5W9kCpOqCYk6wHPlfdrr:37:22)
+    at AuthProvider (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/contexts/AuthContext.tsx:21:32)
+    at QueryClientProvider (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=d643a88e:2805:3)
+    at App
+at g
+at svg
+at div
+at TreeCanvas (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/components/family-tree/TreeCanvas.tsx:24:3)
+at div
+at FamilyTreePage (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/pages/family-tree.tsx:49:47)
+at ProtectedRoute (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/components/auth/ProtectedRoute.tsx:23:14)
+at component
+at Route (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=d643a88e:323:16)
+at Switch (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=d643a88e:379:17)
+at main
+at div
+at MainLayout (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/components/layout/MainLayout.tsx:19:23)
+at Router (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/App.tsx?v=Y5W9kCpOqCYk6wHPlfdrr:37:22)
+at AuthProvider (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/src/contexts/AuthContext.tsx:21:32)
+at QueryClientProvider (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=d643a88e:2805:3)
+at App
+at t.value (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://05dca9f8-a3b7-4a59-b466-c9840d43f594-00-h0v4p918rrss.kirk.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400

@@ -350,7 +350,7 @@ const TreeCanvas = ({
         const spousePos = getNodePosition({ id: member.spouse.id } as FamilyMember);
         lines.push(
           <RelationshipLine 
-            key={`spouse-${member.id}-${member.spouse.id}`}
+            key={`spouse-${member.id}-${member.spouse.id}-${member.spouse.relationship_type}`}
             x1={memberPos.x}
             y1={memberPos.y}
             x2={spousePos.x}
@@ -362,11 +362,11 @@ const TreeCanvas = ({
       }
       
       // Render parent-child connections (vertical lines)
-      member.children.forEach(child => {
+      member.children.forEach((child, index) => {
         const childPos = getNodePosition({ id: child.id } as FamilyMember);
         lines.push(
           <RelationshipLine 
-            key={`child-${member.id}-${child.id}`}
+            key={`child-${member.id}-${child.id}-${index}-${child.relationship_type}`}
             x1={memberPos.x}
             y1={memberPos.y}
             x2={childPos.x}
@@ -378,11 +378,11 @@ const TreeCanvas = ({
       });
       
       // Render sibling connections (curved lines)
-      member.siblings.forEach(sibling => {
+      member.siblings.forEach((sibling, index) => {
         const siblingPos = getNodePosition({ id: sibling.id } as FamilyMember);
         lines.push(
           <RelationshipLine 
-            key={`sibling-${member.id}-${sibling.id}`}
+            key={`sibling-${member.id}-${sibling.id}-${index}-${sibling.relationship_type}`}
             x1={memberPos.x}
             y1={memberPos.y}
             x2={siblingPos.x}
@@ -394,11 +394,11 @@ const TreeCanvas = ({
       });
       
       // Render extended connections (dashed lines)
-      member.extended.forEach(extended => {
+      member.extended.forEach((extended, index) => {
         const extendedPos = getNodePosition({ id: extended.id } as FamilyMember);
         lines.push(
           <RelationshipLine 
-            key={`extended-${member.id}-${extended.id}`}
+            key={`extended-${member.id}-${extended.id}-${index}-${extended.relationship_type}`}
             x1={memberPos.x}
             y1={memberPos.y}
             x2={extendedPos.x}
