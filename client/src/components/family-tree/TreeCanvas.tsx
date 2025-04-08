@@ -105,78 +105,173 @@ const TreeCanvas = ({
     const positions: Record<number, { x: number, y: number }> = {};
     
     if (visualizationType !== "flat" && hierarchicalFamily.length > 0) {
-      // Create a map of nodes by generation for hierarchical layout
-      const nodesByGeneration: Record<number, { id: number, hasSpouse: boolean }[]> = {};
-      const processedNodes = new Set<number>();
+      console.log("Using hierarchical layout calculation");
       
-      // First pass - group nodes by generation
+      // Create a map of members by ID for quick lookup
+      const membersById = new Map<number, HierarchicalFamilyMember>();
+      hierarchicalFamily.forEach(member => {
+        membersById.set(member.id, member);
+      });
+      
+      // Create a map of nodes by generation for hierarchical layout
+      const nodesByGeneration: Record<number, { id: number, hasSpouse: boolean, spouseId?: number }[]> = {};
+      const processedNodes = new Set<number>();
+      const spouseRelationships = new Map<number, number>(); // Map of spouse relationships
+      
+      // First pass - identify all spouse relationships
+      hierarchicalFamily.forEach(member => {
+        if (member.spouse) {
+          spouseRelationships.set(member.id, member.spouse.id);
+          spouseRelationships.set(member.spouse.id, member.id);
+        }
+      });
+      
+      // Second pass - group nodes by generation
       hierarchicalFamily.forEach(member => {
         // Determine generation (default to 0 if not available)
         const generation = member.generation || 0;
+        
+        // Skip if this node has already been processed
+        if (processedNodes.has(member.id)) {
+          return;
+        }
         
         // Initialize array for this generation if it doesn't exist
         if (!nodesByGeneration[generation]) {
           nodesByGeneration[generation] = [];
         }
         
+        // Check if this member has a spouse
+        const spouseId = spouseRelationships.get(member.id);
+        const hasSpouse = !!spouseId;
+        
         // Add this member to its generation group
         nodesByGeneration[generation].push({
           id: member.id,
-          hasSpouse: !!member.spouse
+          hasSpouse,
+          spouseId
         });
         
         // Mark this node as processed
         processedNodes.add(member.id);
         
-        // If this member has a spouse, add the spouse to the same generation
-        if (member.spouse && !processedNodes.has(member.spouse.id)) {
+        // Process spouse if exists and not already processed
+        if (hasSpouse && !processedNodes.has(spouseId!)) {
+          // Spouse goes in the same generation
           nodesByGeneration[generation].push({
-            id: member.spouse.id,
-            hasSpouse: true
+            id: spouseId!,
+            hasSpouse: true,
+            spouseId: member.id
           });
-          processedNodes.add(member.spouse.id);
+          processedNodes.add(spouseId!);
         }
       });
       
-      // Second pass - position nodes by generation
+      // Sort generations from oldest (smallest number, typically negative) to youngest (largest number)
       const generations = Object.keys(nodesByGeneration).map(Number).sort((a, b) => a - b);
       
+      // Initial positioning - place each generation
       generations.forEach((generation, genIndex) => {
         const nodesInGeneration = nodesByGeneration[generation];
         const y = 100 + (genIndex * VERTICAL_SPACING);
         
         // Calculate total width needed for this generation
-        const totalWidth = nodesInGeneration.length * HORIZONTAL_SPACING;
+        const totalNodes = nodesInGeneration.length;
+        const totalWidth = totalNodes * HORIZONTAL_SPACING;
         const startX = 500 - (totalWidth / 2); // Center in the SVG
         
-        // Position each node in this generation
+        // Process spouse pairs first
+        const processedForSpacing = new Set<number>();
+        
+        // First position spouse pairs next to each other
+        for (let i = 0; i < nodesInGeneration.length; i++) {
+          const node = nodesInGeneration[i];
+          
+          if (processedForSpacing.has(node.id)) {
+            continue;
+          }
+          
+          if (node.hasSpouse && node.spouseId) {
+            // Find spouse node index
+            const spouseIndex = nodesInGeneration.findIndex(n => n.id === node.spouseId);
+            
+            if (spouseIndex !== -1) {
+              // Calculate positions for the pair
+              const pairPosition = i * HORIZONTAL_SPACING;
+              
+              // Position member
+              positions[node.id] = {
+                x: startX + pairPosition,
+                y: y
+              };
+              
+              // Position spouse to the right
+              positions[node.spouseId] = {
+                x: startX + pairPosition + HORIZONTAL_SPACING / 2,
+                y: y
+              };
+              
+              // Mark both as processed
+              processedForSpacing.add(node.id);
+              processedForSpacing.add(node.spouseId);
+            }
+          }
+        }
+        
+        // Then position remaining members
         nodesInGeneration.forEach((node, nodeIndex) => {
-          const spouseOffset = node.hasSpouse ? HORIZONTAL_SPACING / 2 : 0;
-          positions[node.id] = {
-            x: startX + (nodeIndex * HORIZONTAL_SPACING) - spouseOffset,
-            y: y
-          };
+          if (!processedForSpacing.has(node.id)) {
+            positions[node.id] = {
+              x: startX + (nodeIndex * HORIZONTAL_SPACING),
+              y: y
+            };
+            processedForSpacing.add(node.id);
+          }
         });
       });
       
-      // Third pass - process spouse relationships to ensure they're side by side
+      // Adjust child positions to be centered under their parents
       hierarchicalFamily.forEach(member => {
-        if (member.spouse) {
-          const memberPos = positions[member.id];
-          const spousePos = positions[member.spouse.id];
+        // Process each member with children
+        if (member.children && member.children.length > 0) {
+          const memberPosition = positions[member.id];
+          if (!memberPosition) return;
           
-          // Adjust positions to ensure spouses are side by side
-          // Only adjust if they're not already positioned close together
-          if (Math.abs(memberPos.x - spousePos.x) > HORIZONTAL_SPACING * 1.5) {
-            // Position spouse to the right of the member
-            positions[member.spouse.id] = {
-              x: memberPos.x + HORIZONTAL_SPACING,
-              y: memberPos.y
-            };
+          // Find spouse position if it exists
+          let spousePosition = null;
+          if (member.spouse) {
+            spousePosition = positions[member.spouse.id];
+          }
+          
+          // Calculate center point between member and spouse (or just member position if no spouse)
+          const centerX = spousePosition 
+            ? (memberPosition.x + spousePosition.x) / 2
+            : memberPosition.x;
+            
+          // Get all children positions
+          const childrenIds = member.children.map(child => child.id);
+          const childPositions = childrenIds
+            .map(id => positions[id])
+            .filter(pos => pos); // Filter out undefined positions
+            
+          if (childPositions.length > 0) {
+            // Calculate current children center
+            const childrenXTotal = childPositions.reduce((sum, pos) => sum + pos.x, 0);
+            const childrenCenter = childrenXTotal / childPositions.length;
+            
+            // Calculate offset to center children under parents
+            const offset = centerX - childrenCenter;
+            
+            // Apply offset to all children
+            childrenIds.forEach(childId => {
+              if (positions[childId]) {
+                positions[childId].x += offset;
+              }
+            });
           }
         }
       });
-
+      
       // Handle special visualization types
       if (visualizationType === "ancestor" || visualizationType === "descendant") {
         // For ancestor/descendant charts, use a more vertical layout
@@ -186,7 +281,7 @@ const TreeCanvas = ({
           // Position nodes more vertically for ancestor/descendant charts
           const y = 100 + (genIndex * VERTICAL_SPACING * 1.2); // More vertical spacing
           
-          nodesInGeneration.forEach((node, nodeIndex) => {
+          nodesInGeneration.forEach((node) => {
             if (positions[node.id]) {
               positions[node.id].y = y;
             }
@@ -198,59 +293,81 @@ const TreeCanvas = ({
         const centerY = 300;
         const radius = 200;
         
-        hierarchicalFamily.forEach((member, index) => {
-          const angle = (index / hierarchicalFamily.length) * Math.PI * 2;
+        // First position immediate family in inner circle
+        const immediateFamily = hierarchicalFamily.filter(member => {
+          return member.children.length > 0 || member.parents.length > 0 || member.spouse;
+        });
+        
+        // Then position extended family in outer circle
+        const extendedFamily = hierarchicalFamily.filter(member => {
+          return !immediateFamily.some(imm => imm.id === member.id);
+        });
+        
+        // Position immediate family in inner circle
+        immediateFamily.forEach((member, index) => {
+          const angle = (index / immediateFamily.length) * Math.PI * 2;
+          positions[member.id] = {
+            x: centerX + Math.cos(angle) * (radius * 0.6),
+            y: centerY + Math.sin(angle) * (radius * 0.6)
+          };
+        });
+        
+        // Position extended family in outer circle
+        extendedFamily.forEach((member, index) => {
+          const angle = (index / extendedFamily.length) * Math.PI * 2;
           positions[member.id] = {
             x: centerX + Math.cos(angle) * radius,
             y: centerY + Math.sin(angle) * radius
           };
-          
-          // Position spouse if exists
+        });
+        
+        // Ensure spouses are close to each other
+        hierarchicalFamily.forEach(member => {
           if (member.spouse) {
-            const spouseAngle = angle + (0.1 * Math.PI);
-            positions[member.spouse.id] = {
-              x: centerX + Math.cos(spouseAngle) * radius,
-              y: centerY + Math.sin(spouseAngle) * radius
-            };
+            const memberPos = positions[member.id];
+            const spousePos = positions[member.spouse.id];
+            
+            if (memberPos && spousePos) {
+              // Move spouse slightly closer to member
+              const dx = spousePos.x - memberPos.x;
+              const dy = spousePos.y - memberPos.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              
+              // If they're too far apart, move them closer
+              if (dist > radius * 0.3) {
+                const ratio = (radius * 0.3) / dist;
+                spousePos.x = memberPos.x + dx * ratio;
+                spousePos.y = memberPos.y + dy * ratio;
+              }
+            }
           }
         });
       }
       
       return positions;
     } else {
-      // Fallback to simplified positions for flat structure
-      // Use existing predefined positions for compatibility
-      const defaultPositions: Record<number, { x: number, y: number }> = {
-        // Generation 1
-        1: { x: 500, y: 80 }, // John Smith (Grandfather)
-        
-        // Generation 2
-        2: { x: 300, y: 210 }, // Robert Smith (Father)
-        3: { x: 500, y: 210 }, // Linda Smith (Aunt)
-        4: { x: 700, y: 210 }, // Michael Johnson (Adopted Son)
-        
-        // Generation 3
-        5: { x: 200, y: 340 }, // Emily Smith (Sister)
-        6: { x: 350, y: 340 }, // James Wilson (Step-Brother)
-        7: { x: 500, y: 340 }, // Sarah Johnson (You)
-        8: { x: 650, y: 340 }, // David Lee (Cousin)
-        9: { x: 800, y: 340 }, // Jessica Lee (Cousin)
-      };
+      // Flat layout - grid-based positioning
+      console.log("Using flat layout calculation");
       
-      // Add positions for all family members based on ID
+      // Calculate grid dimensions
+      const GRID_COLS = 5;
+      const GRID_SPACING_X = 160;
+      const GRID_SPACING_Y = 150;
+      const GRID_START_X = 100;
+      const GRID_START_Y = 100;
+      
+      // Position each family member in a grid
       familyMembers.forEach((member, index) => {
-        if (!defaultPositions[member.id]) {
-          // Calculate grid-based position for any members without predefined positions
-          const row = Math.floor(index / 5);
-          const col = index % 5;
-          defaultPositions[member.id] = {
-            x: 180 + (col * 160),
-            y: 100 + (row * 150)
-          };
-        }
+        const row = Math.floor(index / GRID_COLS);
+        const col = index % GRID_COLS;
+        
+        positions[member.id] = {
+          x: GRID_START_X + (col * GRID_SPACING_X),
+          y: GRID_START_Y + (row * GRID_SPACING_Y)
+        };
       });
       
-      return defaultPositions;
+      return positions;
     }
   };
 
@@ -391,6 +508,7 @@ const TreeCanvas = ({
   // Render relationships based on hierarchical data (parent-child, spouse connections)
   const renderHierarchicalRelationships = () => {
     const lines: JSX.Element[] = [];
+    const processedRelationships = new Set<string>(); // Track which relationships we've rendered
     
     if (!hierarchicalFamily || hierarchicalFamily.length === 0) {
       return lines;
@@ -401,50 +519,82 @@ const TreeCanvas = ({
       
       // Render spouse connection (horizontal line)
       if (member.spouse) {
-        const spousePos = getNodePosition({ id: member.spouse.id } as FamilyMember);
-        lines.push(
-          <RelationshipLine 
-            key={`spouse-${member.id}-${member.spouse.id}-${member.spouse.relationship_type}`}
-            x1={memberPos.x}
-            y1={memberPos.y}
-            x2={spousePos.x}
-            y2={spousePos.y}
-            type="spouse"
-            lineStyle="horizontal"
-          />
-        );
+        const spouseId = member.spouse.id;
+        // Generate a unique key for this spouse relationship
+        const relationshipKey = `spouse-${Math.min(member.id, spouseId)}-${Math.max(member.id, spouseId)}`;
+        
+        // Only render if we haven't processed this relationship yet
+        if (!processedRelationships.has(relationshipKey)) {
+          const spousePos = getNodePosition({ id: spouseId } as FamilyMember);
+          lines.push(
+            <RelationshipLine 
+              key={relationshipKey}
+              x1={memberPos.x}
+              y1={memberPos.y}
+              x2={spousePos.x}
+              y2={spousePos.y}
+              type={member.spouse.relationship_type || "spouse"}
+              lineStyle="horizontal"
+            />
+          );
+          processedRelationships.add(relationshipKey);
+        }
       }
       
       // Render parent-child connections (vertical lines)
-      member.children.forEach((child, index) => {
-        const childPos = getNodePosition({ id: child.id } as FamilyMember);
-        lines.push(
-          <RelationshipLine 
-            key={`child-${member.id}-${child.id}-${index}-${child.relationship_type}`}
-            x1={memberPos.x}
-            y1={memberPos.y}
-            x2={childPos.x}
-            y2={childPos.y}
-            type={child.relationship_type}
-            lineStyle="vertical"
-          />
-        );
+      member.children.forEach((child) => {
+        const childId = child.id;
+        const relationshipKey = `parent-child-${member.id}-${childId}`;
+        
+        if (!processedRelationships.has(relationshipKey)) {
+          const childPos = getNodePosition({ id: childId } as FamilyMember);
+          lines.push(
+            <RelationshipLine 
+              key={relationshipKey}
+              x1={memberPos.x}
+              y1={memberPos.y}
+              x2={childPos.x}
+              y2={childPos.y}
+              type={child.relationship_type || "parent"}
+              lineStyle="vertical"
+            />
+          );
+          processedRelationships.add(relationshipKey);
+        }
       });
       
       // Render sibling connections (curved lines)
-      member.siblings.forEach((sibling, index) => {
-        const siblingPos = getNodePosition({ id: sibling.id } as FamilyMember);
-        lines.push(
-          <RelationshipLine 
-            key={`sibling-${member.id}-${sibling.id}-${index}-${sibling.relationship_type}`}
-            x1={memberPos.x}
-            y1={memberPos.y}
-            x2={siblingPos.x}
-            y2={siblingPos.y}
-            type={sibling.relationship_type}
-            lineStyle="curved"
-          />
-        );
+      member.siblings.forEach((sibling) => {
+        const siblingId = sibling.id;
+        // Create unique key for the sibling relationship (order by ID to avoid duplicates)
+        const relationshipKey = `sibling-${Math.min(member.id, siblingId)}-${Math.max(member.id, siblingId)}`;
+        
+        if (!processedRelationships.has(relationshipKey)) {
+          const siblingPos = getNodePosition({ id: siblingId } as FamilyMember);
+          
+          // Determine the type of sibling relationship
+          let lineType: "straight" | "horizontal" | "vertical" | "curved" | "dashed" = "curved";
+          
+          // Use dashed line for step-siblings, half-siblings, or extended family
+          if (sibling.relationship_type?.includes("step") || 
+              sibling.relationship_type?.includes("half") ||
+              (sibling.relation_category && sibling.relation_category === "extended")) {
+            lineType = "dashed";
+          }
+          
+          lines.push(
+            <RelationshipLine 
+              key={relationshipKey}
+              x1={memberPos.x}
+              y1={memberPos.y}
+              x2={siblingPos.x}
+              y2={siblingPos.y}
+              type={sibling.relationship_type?.toString() || "sibling"}
+              lineStyle={lineType}
+            />
+          );
+          processedRelationships.add(relationshipKey);
+        }
       });
       
       // Render extended connections (dashed lines)
@@ -457,7 +607,7 @@ const TreeCanvas = ({
             y1={memberPos.y}
             x2={extendedPos.x}
             y2={extendedPos.y}
-            type={extended.relationship_type}
+            type={extended.relationship_type?.toString() || "extended"}
             lineStyle="dashed"
           />
         );
@@ -500,7 +650,7 @@ const TreeCanvas = ({
                     y1={sourcePos.y}
                     x2={targetPos.x}
                     y2={targetPos.y}
-                    type={relationship.relationship_type}
+                    type={relationship.relationship_type?.toString() || "unknown"}
                   />
                 );
               })

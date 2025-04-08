@@ -53,33 +53,58 @@ const RelationshipLine = ({ x1, y1, x2, y2, type, lineStyle = "straight" }: Rela
   
   // Create path for curved lines or custom line styles
   const getPath = () => {
-    if (lineStyle === "straight") {
-      return `M ${x1} ${y1} L ${x2} ${y2}`;
-    }
-    
+    // For horizontal lines (like spouse relationships)
     if (lineStyle === "horizontal") {
-      // Straight horizontal line
+      // Enhanced horizontal line with slight curve for visual appeal
+      const midY = (y1 + y2) / 2 - 5; // Slight curve upward
+      return `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${midY}, ${x2} ${y2}`;
+    }
+    
+    // For vertical/hierarchical lines (parent-child relationships)
+    if (lineStyle === "vertical") {
+      // Determine if this is a downward connection (parent -> child)
+      const isDownward = y2 > y1;
+      
+      if (isDownward) {
+        // Parent to child: First go down, then horizontally
+        const midY = y1 + (y2 - y1) * 0.6; // Go down 60% of the way
+        return `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+      } else {
+        // Child to parent or other vertical relationship
+        const midY = y2 + (y1 - y2) * 0.6; // Go up 60% of the way
+        return `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+      }
+    }
+    
+    // For curved lines (sibling relationships)
+    if (lineStyle === "curved") {
+      // Enhanced Bezier curve for sibling relationships
+      const dx = Math.abs(x2 - x1);
+      const dy = Math.abs(y2 - y1);
+      
+      if (dy < 10) { // If on same level, use a simple arc
+        const midY = (y1 + y2) / 2 - Math.min(dx / 4, 30); // Arc height based on distance
+        return `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${midY}, ${x2} ${y2}`;
+      } else {
+        // For siblings at different levels, use S-curve
+        const controlX1 = x1 + (x2 - x1) * 0.2;
+        const controlY1 = y1 + (y2 - y1) * 0.4;
+        const controlX2 = x1 + (x2 - x1) * 0.8;
+        const controlY2 = y1 + (y2 - y1) * 0.6;
+        return `M ${x1} ${y1} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${x2} ${y2}`;
+      }
+    }
+    
+    // For dashed lines (extended family relationships)
+    if (lineStyle === "dashed") {
+      // Simple direct line for extended family
       return `M ${x1} ${y1} L ${x2} ${y2}`;
     }
     
-    if (lineStyle === "vertical") {
-      // Use a path with right angle for parent-child
-      // First go down, then go right/left
-      const midY = y1 + (y2 - y1) * 0.6; // Go down 60% of the way
-      return `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
-    }
-    
-    if (lineStyle === "curved") {
-      // Bezier curve for sibling relationships
-      const controlX1 = x1;
-      const controlY1 = (y1 + y2) / 2;
-      const controlX2 = x2;
-      const controlY2 = (y1 + y2) / 2;
-      return `M ${x1} ${y1} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${x2} ${y2}`;
-    }
-    
-    // Default to straight line
-    return `M ${x1} ${y1} L ${x2} ${y2}`;
+    // Default case: straight line with slight curve for visual interest
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2 - 5;
+    return `M ${x1} ${y1} Q ${midX} ${midY}, ${x2} ${y2}`;
   };
 
   // Use path for all relationship lines to support different styles
