@@ -125,7 +125,7 @@ export const aiService = {
           messages: [
             {
               role: "system",
-              content: "You are a thoughtful family historian who writes warm, personal narratives about family members. Your tone is gentle and empathetic. Pay special attention to personality traits, interests, and occupation when crafting the narrative to make it feel personalized and authentic."
+              content: "You are a thoughtful family historian who writes warm, personal narratives about family members. Your tone is gentle and empathetic. When writing a narrative, you MUST incorporate the personality traits, interests, and occupation provided to create an authentic portrayal that feels uniquely personalized to the individual. Explicitly reference these characteristics throughout the narrative, showing how they influence the person's relationships, experiences, and place within the family. Use specific traits to illustrate character and interests to highlight passions. The narrative should feel deeply personal through these specific details rather than generic observations."
             },
             {
               role: "user",
@@ -165,18 +165,51 @@ ${member.name} is a ${member.role.toLowerCase()} in the family known for ${
 }.
 
 ${member.occupation 
-  ? `As a ${member.occupation}, they bring valuable perspective to family discussions.` 
-  : ''}
-
-They maintain close relationships with several family members and play an important role in the family structure. Their presence enriches family gatherings with ${
+  ? `As a ${member.occupation}, they bring valuable perspective to family discussions. ` 
+  : ''}${
   member.personality_traits && member.personality_traits.length > 0
-    ? member.personality_traits[0]
-    : 'warmth'
-} and ${
+    ? `Their ${member.personality_traits[0]} nature means they often ${
+      member.personality_traits[0] === 'patient' ? 'take time to listen carefully to everyone\'s concerns' :
+      member.personality_traits[0] === 'creative' ? 'find unique solutions to family challenges' :
+      member.personality_traits[0] === 'organized' ? 'help keep family gatherings running smoothly' :
+      member.personality_traits[0] === 'thoughtful' ? 'remember important details about each family member' :
+      member.personality_traits[0] === 'nurturing' ? 'make sure everyone feels cared for and supported' :
+      member.personality_traits[0] === 'humorous' ? 'bring laughter and light-heartedness to family events' :
+      member.personality_traits[0] === 'adventurous' ? 'encourage the family to try new activities together' :
+      'provide a unique perspective in family discussions'
+    }. `
+    : ''
+}
+
+${
   member.interests && member.interests.length > 0
-    ? `stories about their experiences with ${member.interests[0]}`
-    : 'unique insights'
-}.
+    ? `Their passion for ${member.interests[0]} often ${
+      member.interests[0] === 'gardening' ? 'brings beautiful flowers and fresh vegetables to family gatherings' :
+      member.interests[0] === 'cooking' ? 'means delicious meals that bring the family together around the table' :
+      member.interests[0] === 'music' ? 'fills family gatherings with melody and rhythm that everyone enjoys' :
+      member.interests[0] === 'photography' ? 'ensures precious family moments are captured and preserved' :
+      member.interests[0] === 'hiking' ? 'leads to memorable family adventures in nature' :
+      member.interests[0] === 'reading' ? 'sparks interesting conversations about books and ideas' :
+      member.interests[0] === 'technology' ? 'helps other family members solve tech problems and stay connected' :
+      'provides opportunities for connection with other family members'
+    }.`
+    : 'They have a special way of connecting with each family member on a personal level.'
+}
+
+They maintain meaningful relationships with several family members, particularly ${
+  relationships.filter(r => r.source_id === member.id || r.target_id === member.id).length > 0
+    ? relationships.slice(0, 2).map((rel: any) => {
+        const isSource = rel.source_id === member.id;
+        const otherId = isSource ? rel.target_id : rel.source_id;
+        const otherMember = allMembers.find((m: any) => m.id === otherId);
+        return otherMember ? otherMember.name : 'family members';
+      }).join(' and ')
+    : 'close family members'
+}. ${
+  member.personality_traits && member.personality_traits.length > 1
+    ? `Their ${member.personality_traits[1]} personality trait complements their other qualities and makes them especially good at bringing the family together.`
+    : 'Their unique qualities make them an essential part of the family fabric.'
+}
 
 *Note: This is a simplified narrative generated when the AI service is unavailable. A more personalized narrative would be created when the service is accessible.*`,
           fallback: true
@@ -289,7 +322,7 @@ They maintain close relationships with several family members and play an import
           messages: [
             {
               role: "system",
-              content: "You are a compassionate family relationship expert who provides warm, supportive insights about families. Consider how personality traits and interests influence family dynamics. Look for patterns and complementary traits across family members that might strengthen relationships or cause occasional tension."
+              content: "You are a compassionate family relationship expert who provides warm, supportive insights about families. You MUST thoroughly analyze how personality traits and interests influence family dynamics. Look for specific patterns and complementary traits across family members that strengthen relationships or might occasionally cause tension. Reference concrete examples of how particular traits (such as 'patient' complementing 'energetic') create balance in the family system, and how shared interests (like 'gardening' or 'music') serve as connection points across generations. Your analysis should feel specific to this unique family rather than generic observations that could apply to any family."
             },
             {
               role: "user",
