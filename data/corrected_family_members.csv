@@ -1,0 +1,11 @@
+id,name,role,relationship,birth_date,death_date,gender,location,bio,personality_traits,interests,occupation,user_id,avatar_url,metadata
+1,John Smith,Father,biological,1975-06-15,,male,New York,"Family patriarch, loves outdoor activities","responsible,protective","fishing,woodworking",Engineer,1,,{}
+2,Sarah Smith,Mother,biological,1978-09-22,,female,New York,"Family matriarch, excellent cook","caring,organized","cooking,gardening",Teacher,,,{}
+3,Emma Smith,Daughter,biological,2010-05-10,,female,New York,"Bright and cheerful, loves animals","creative,curious","drawing,animals",Student,,,{}
+4,Michael Smith,Son,biological,2012-11-03,,male,New York,"Energetic and playful, likes sports","active,playful","soccer,video games",Student,,,{}
+5,Robert Johnson,Step-Father,step,1970-03-18,,male,Chicago,"Business professional, enjoys golf","ambitious,methodical","golf,reading",Manager,,,{}
+6,Linda Johnson,Step-Mother,step,1973-12-08,,female,Chicago,"Artistic and nurturing","artistic,patient","painting,yoga",Artist,,,{}
+7,David Brown,Step-Son,step,2008-07-29,,male,Chicago,"Thoughtful and quiet, loves books","introverted,intelligent","reading,chess",Student,,,{}
+8,Sophia Brown,Step-Daughter,step,2014-01-14,,female,Chicago,"Outgoing and musical","extroverted,musical","singing,dancing",Student,,,{}
+9,James Wilson,Adopted-Son,adoptive,2015-08-12,,male,New York,"Cheerful and adaptable","cheerful,adaptable","sports,music",Student,,,{}
+10,William Johnson,Grandfather,extended,1945-02-20,2020-11-05,male,Florida,"Family elder, veteran","wise,stoic","history,fishing",Retired,,,{}
