@@ -85,9 +85,9 @@ const FamilyTreePage: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-background border rounded-xl shadow-sm overflow-hidden h-[700px]">
-            {/* ✅ Feed the built tree to the canvas */}
+        <div className="flex flex-col gap-6">
+          {/* Full-width tree visualization */}
+          <div className="w-full bg-background border rounded-xl shadow-sm overflow-hidden h-[600px]">
             <TreeCanvas
               nodes={tree}
               layout={visualizationType as any}
@@ -99,14 +99,15 @@ const FamilyTreePage: React.FC = () => {
             />
           </div>
 
-          <div className="lg:col-span-1">
+          {/* Family member details below the tree */}
+          <div className="w-full">
             <Card>
               <CardHeader>
                 <CardTitle>Family Member Details</CardTitle>
                 <CardDescription>
                   {selectedMember
                     ? `Viewing details for ${selectedMember.name}`
-                    : "Select a family member to view details"}
+                    : "Select a family member in the tree above to view details"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
