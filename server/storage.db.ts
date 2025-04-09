@@ -22,7 +22,7 @@ import {
   type InsertMessage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, gte, and, or } from "drizzle-orm";
+import { eq, gte, and, or, sql } from "drizzle-orm";
 import { IStorage } from "./storage";
 
 // Logging function
@@ -1126,7 +1126,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-import { sql } from "drizzle-orm"; // add this near the top if not already imported
+// SQL functions already imported at the top of the file
 
 export async function getFamilyTree() {
   const result = await db.execute(sql`

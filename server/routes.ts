@@ -19,6 +19,7 @@ import {
   generateToken,
 } from "./services/authService";
 import { authenticate, requireAdmin } from "./middleware/auth";
+import { getFamilyTree } from "./storage.db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication API
@@ -269,6 +270,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting family member:", error);
       res.status(500).json({ message: "Failed to delete family member" });
+    }
+  });
+
+  // Raw family tree structure route (using SQL query)
+  app.get("/api/family-tree", async (req: Request, res: Response) => {
+    try {
+      const data = await getFamilyTree();
+      res.json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Failed to load family tree");
     }
   });
 
@@ -968,19 +980,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-import express from "express";
-import { getFamilyTree } from "./storage.db";
-
-const router = express.Router();
-
-router.get("/family-tree", async (req, res) => {
-  try {
-    const data = await getFamilyTree();
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Failed to load family tree");
-  }
-});
-
-export default router;
+// Router endpoints moved to main Express app

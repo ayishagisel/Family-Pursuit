@@ -11,6 +11,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// API routes are registered in registerRoutes function
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -45,12 +47,12 @@ app.use((req, res, next) => {
   // Run database migration first
   try {
     await migrate();
-    log('Database migration completed successfully');
+    log("Database migration completed successfully");
   } catch (error) {
     log(`Database migration failed: ${error}`);
     process.exit(1);
   }
-  
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -74,11 +76,14 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+    },
+  );
 })();
