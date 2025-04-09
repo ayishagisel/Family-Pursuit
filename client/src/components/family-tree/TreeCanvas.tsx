@@ -151,7 +151,7 @@ const TreeCanvas = ({
       });
     };
 
-    positionedNodes.forEach((node) => drawLines(node));
+    nodes.forEach((node) => drawLines(node));
 
     console.log("🔗 Drawing", lines.length, "relationship lines");
     return lines;

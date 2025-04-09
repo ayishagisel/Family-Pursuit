@@ -1,16 +1,17 @@
-export function buildFamilyTree(flatData) {
+import { FamilyMember } from "@shared/schema";
+
+export function buildFamilyTree(flatData: any[]): any[] {
   const map = new Map();
-  const roots = [];
+  const roots: any[] = [];
 
   // First: create a map of all members and initialize children arrays
-  flatData.forEach((member) => {
+  flatData.forEach((member: any) => {
     member.children = [];
-    console.log("🧾 member shape:", JSON.stringify(member, null, 2));
     map.set(member.id, member);
   });
 
   // Second: assign children to their parents
-  flatData.forEach((member) => {
+  flatData.forEach((member: any) => {
     console.log(
       `🧩 ID: ${member.id} | Name: ${member.name} | Parent ID: ${member.parent}`,
     );
@@ -33,7 +34,7 @@ export function buildFamilyTree(flatData) {
   return roots;
 }
 
-export function buildHierarchicalTree(hierarchicalData) {
+export function buildHierarchicalTree(hierarchicalData: any[]): any[] {
   if (!hierarchicalData || !Array.isArray(hierarchicalData)) {
     console.error("Invalid hierarchical data provided", hierarchicalData);
     return [];
@@ -43,7 +44,7 @@ export function buildHierarchicalTree(hierarchicalData) {
   const nodesMap = new Map();
   
   // Initialize all nodes and store them in the map
-  hierarchicalData.forEach(member => {
+  hierarchicalData.forEach((member: any) => {
     // Create a node with basic info
     const node = {
       ...member,
@@ -62,12 +63,12 @@ export function buildHierarchicalTree(hierarchicalData) {
   });
   
   // Process parent-child relationships
-  hierarchicalData.forEach(member => {
+  hierarchicalData.forEach((member: any) => {
     const node = nodesMap.get(member.id);
     
     // Add all children references
     if (member.children && member.children.length > 0) {
-      member.children.forEach(child => {
+      member.children.forEach((child: any) => {
         const childNode = nodesMap.get(child.id);
         if (childNode) {
           // Add to children list
@@ -80,8 +81,8 @@ export function buildHierarchicalTree(hierarchicalData) {
   });
   
   // Identify root nodes (those without parents)
-  const rootNodes = [];
-  nodesMap.forEach(node => {
+  const rootNodes: any[] = [];
+  nodesMap.forEach((node: any) => {
     if (!node.parent) {
       rootNodes.push(node);
     }

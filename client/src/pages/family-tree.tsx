@@ -35,7 +35,7 @@ const FamilyTreePage: React.FC = () => {
   }, [familyTreeData]);
 
   // Make sure we handle undefined data
-  const tree = familyTreeData || [];
+  const tree = familyTreeData ? buildFamilyTree(familyTreeData) : [];
 
   React.useEffect(() => {
     console.log("🌳 Final nested tree (used by TreeCanvas):", tree);

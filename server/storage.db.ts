@@ -1159,34 +1159,6 @@ export async function getFamilyTree() {
     SELECT DISTINCT ON (id) * FROM family_tree ORDER BY id, generation;
   `);
 
-  // const result = await db.execute(sql`
-  //   WITH RECURSIVE family_tree AS (
-  //     SELECT
-  //       fm.id,
-  //       fm.name,
-  //       NULL::INT AS parent_id,
-  //       0 AS generation
-  //     FROM family_members fm
-  //     WHERE NOT EXISTS (
-  //       SELECT 1 FROM relationships r
-  //       WHERE r.target_id = fm.id
-  //         AND r.relationship_type IN ('child', 'son', 'daughter')
-  //     )
-
-  //     UNION ALL
-
-  //     SELECT
-  //       fm.id,
-  //       fm.name,
-  //       r.source_id AS parent_id,
-  //       ft.generation + 1
-  //     FROM family_tree ft
-  //     JOIN relationships r ON r.source_id = ft.id
-  //     JOIN family_members fm ON fm.id = r.target_id
-  //     WHERE r.relationship_type IN ('child', 'son', 'daughter')
-  //   )
-  //   SELECT * FROM family_tree ORDER BY generation, parent_id;
-  // `);
-
+  // ✅ Return the data properly
   return result.rows;
 }
