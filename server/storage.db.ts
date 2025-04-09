@@ -310,6 +310,7 @@ export class DatabaseStorage implements IStorage {
   /**
    * Calculate generation levels for family members
    * This helps with visualizing the family tree in a hierarchical layout
+   * Enhanced version that better handles complex family structures
    */
   private calculateGenerations(membersMap: Map<number, any>): void {
     // Find root members (those without parents)
@@ -347,7 +348,36 @@ export class DatabaseStorage implements IStorage {
       member.spouses.forEach((spouse: any) => {
         assignGeneration(spouse.id, generation);
       });
+      
+      // Make sure siblings have the same generation
+      member.siblings.forEach((sibling: any) => {
+        assignGeneration(sibling.id, generation);
+      });
     }
+    
+    // Special case for parent/child relationships in father/mother format
+    // This serves as a safety check to ensure we handle all relationship types
+    const allRelationships = Array.from(membersMap.values()).flatMap(member => 
+      [...member.relationships.immediate, ...member.relationships.step, ...member.relationships.adoptive]
+    );
+    
+    // Process specific relationship types we know should be generational
+    allRelationships.forEach((rel: any) => {
+      const relType = rel.relationship_type?.toLowerCase();
+      if (relType === 'father' || relType === 'mother') {
+        // Parent is one generation above child
+        const parentId = rel.id; // The relation target is the parent
+        const childId = rel.relationship_id; // The relation source is the child
+        
+        if (generations.has(parentId)) {
+          const parentGeneration = generations.get(parentId)!;
+          assignGeneration(childId, parentGeneration + 1);
+        } else if (generations.has(childId)) {
+          const childGeneration = generations.get(childId)!;
+          assignGeneration(parentId, childGeneration - 1);
+        }
+      }
+    });
     
     // Log generations for debugging
     console.log(`Assigned generations to ${generations.size} family members`);
@@ -359,18 +389,52 @@ export class DatabaseStorage implements IStorage {
   private determineRelationCategory(relationType: string): string {
     const type = relationType.toLowerCase();
     
-    if (type.includes('adoptive')) return 'adoptive';
-    if (type.includes('step')) return 'step';
-    if (type.includes('half')) return 'half';
+    // Handle specific categories with keywords
+    if (type.includes('adoptive') || type === 'adopted-son' || type === 'adopted-daughter') {
+      return 'adoptive';
+    }
     
-    if (['parent', 'child', 'spouse', 'sibling', 'guardian'].includes(type)) {
+    if (type.includes('step')) {
+      return 'step';
+    }
+    
+    if (type.includes('half')) {
+      return 'half';
+    }
+    
+    // Handle specific parent-child relationships
+    if (['parent', 'child', 'father', 'mother', 'son', 'daughter'].includes(type)) {
       return 'immediate';
     }
     
-    if (['grandparent', 'grandchild', 'aunt', 'uncle', 'cousin', 'niece', 'nephew'].includes(type)) {
+    // Handle spouse relationships
+    if (['spouse', 'husband', 'wife', 'partner'].includes(type)) {
+      return 'immediate';
+    }
+    
+    // Handle sibling relationships
+    if (['sibling', 'brother', 'sister'].includes(type)) {
+      return 'immediate';
+    }
+    
+    // Handle guardian relationships
+    if (['guardian', 'ward'].includes(type)) {
+      return 'immediate';
+    }
+    
+    // Handle extended family relationships
+    if (['grandparent', 'grandfather', 'grandmother', 'grandchild', 'grandson', 'granddaughter',
+         'aunt', 'uncle', 'cousin', 'niece', 'nephew', 'great-aunt', 'great-uncle',
+         'great-grandparent', 'great-grandchild'].includes(type)) {
       return 'extended';
     }
     
+    // Handle in-laws and other extended relationships
+    if (type.includes('in-law') || type === 'godparent' || type === 'godchild') {
+      return 'extended';
+    }
+    
+    // Default category for unrecognized relationships
     return 'other';
   }
   
@@ -381,27 +445,68 @@ export class DatabaseStorage implements IStorage {
     const type = relationType.toLowerCase();
     
     switch (type) {
+      // Basic relationships
       case 'parent': return 'child';
       case 'child': return 'parent';
+      
+      // Specific parent roles
+      case 'father': return 'child';
+      case 'mother': return 'child';
+      case 'son': return 'parent';
+      case 'daughter': return 'parent';
+      
+      // Extended family
       case 'grandparent': return 'grandchild';
+      case 'grandfather': return 'grandchild';
+      case 'grandmother': return 'grandchild';
       case 'grandchild': return 'grandparent';
+      case 'grandson': return 'grandparent';
+      case 'granddaughter': return 'grandparent';
       case 'aunt': return 'niece/nephew';
       case 'uncle': return 'niece/nephew';
       case 'niece': return 'aunt/uncle';
       case 'nephew': return 'aunt/uncle';
+      
+      // Adoptive relationships
       case 'adoptive-parent': return 'adoptive-child';
+      case 'adoptive-father': return 'adoptive-child';
+      case 'adoptive-mother': return 'adoptive-child';
       case 'adoptive-child': return 'adoptive-parent';
+      case 'adoptive-son': return 'adoptive-parent';
+      case 'adoptive-daughter': return 'adoptive-parent';
+      
+      // Step relationships
       case 'step-parent': return 'step-child';
+      case 'step-father': return 'step-child';
+      case 'step-mother': return 'step-child';
       case 'step-child': return 'step-parent';
+      case 'step-son': return 'step-parent';
+      case 'step-daughter': return 'step-parent';
+      
+      // Other relationships
       case 'godparent': return 'godchild';
+      case 'godfather': return 'godchild';
+      case 'godmother': return 'godchild';
       case 'godchild': return 'godparent';
+      
       // These relationships are symmetric
       case 'spouse': return 'spouse';
+      case 'husband': return 'wife';
+      case 'wife': return 'husband';
+      case 'partner': return 'partner';
       case 'sibling': return 'sibling';
+      case 'brother': return 'sibling';
+      case 'sister': return 'sibling';
       case 'cousin': return 'cousin';
       case 'half-sibling': return 'half-sibling';
+      case 'half-brother': return 'half-sibling';
+      case 'half-sister': return 'half-sibling';
       case 'step-sibling': return 'step-sibling';
+      case 'step-brother': return 'step-sibling';
+      case 'step-sister': return 'step-sibling';
       case 'in-law': return 'in-law';
+      
+      // Default fallback
       default: return `related-to`;
     }
   }
