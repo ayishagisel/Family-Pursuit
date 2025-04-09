@@ -27,8 +27,9 @@ const FamilyTreePage: React.FC = () => {
   const [visualizationType, setVisualizationType] =
     useState<string>("hierarchical");
 
-  // ✅ NEW: Load hierarchical family tree
+  // Load hierarchical family tree from the relationships API
   const { data: familyTreeData, isLoading, error } = useFamilyTree();
+  // Make sure we handle undefined data
   const tree = familyTreeData ? buildFamilyTree(familyTreeData) : [];
 
   // Optional: Family member detail narrative
