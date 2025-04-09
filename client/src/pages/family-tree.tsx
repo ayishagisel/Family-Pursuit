@@ -29,8 +29,17 @@ const FamilyTreePage: React.FC = () => {
 
   // Load hierarchical family tree from the relationships API
   const { data: familyTreeData, isLoading, error } = useFamilyTree();
+
+  React.useEffect(() => {
+    console.log("📦 Raw flat data from API:", familyTreeData);
+  }, [familyTreeData]);
+
   // Make sure we handle undefined data
-  const tree = familyTreeData ? buildFamilyTree(familyTreeData) : [];
+  const tree = familyTreeData || [];
+
+  React.useEffect(() => {
+    console.log("🌳 Final nested tree (used by TreeCanvas):", tree);
+  }, [tree]);
 
   // Optional: Family member detail narrative
   const { data: memberDetails, isLoading: isDetailLoading } = useQuery<any>({

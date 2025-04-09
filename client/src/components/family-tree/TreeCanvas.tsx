@@ -4,7 +4,6 @@ import RelationshipLine from "./RelationshipLine";
 import { FamilyMember } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 
-// Define visualization types
 type VisualizationType =
   | "hierarchical"
   | "ancestor"
@@ -13,8 +12,8 @@ type VisualizationType =
   | "flat";
 
 interface TreeCanvasProps {
-  nodes: FamilyMember[]; // The hierarchical family tree data
-  layout?: string; // Layout type for visualization
+  nodes: any[]; // Hierarchical tree with children[]
+  layout?: string;
   onNodeClick?: (member: FamilyMember) => void;
   onZoomChange?: (scale: number) => void;
   zoomIn?: boolean;
@@ -42,10 +41,10 @@ const TreeCanvas = ({
   const positionedNodes = layoutNodes(nodes, visualizationType);
 
   useEffect(() => {
-    console.log("Built family tree with", nodes.length, "nodes");
+    console.log("📦 Received tree with", nodes.length, "root nodes");
   }, [nodes]);
 
-  const getNodeSize = (member: FamilyMember) => 30;
+  const getNodeSize = () => 30;
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -80,51 +79,39 @@ const TreeCanvas = ({
     }
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handleMouseUp = () => setIsDragging(false);
 
-  // Global mouse up event
   useEffect(() => {
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('mouseleave', handleMouseUp);
-    
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseleave", handleMouseUp);
     return () => {
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('mouseleave', handleMouseUp);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseleave", handleMouseUp);
     };
   }, []);
 
-  // Notify parent component of zoom changes
   useEffect(() => {
-    if (onZoomChange) {
-      onZoomChange(transform.scale);
-    }
+    if (onZoomChange) onZoomChange(transform.scale);
   }, [transform.scale, onZoomChange]);
 
-  // Handle zoom in button
   useEffect(() => {
     if (zoomIn) {
-      const newScale = Math.min(2, transform.scale + 0.2);
-      setTransform(prev => ({
+      setTransform((prev) => ({
         ...prev,
-        scale: newScale
+        scale: Math.min(2, prev.scale + 0.2),
       }));
     }
   }, [zoomIn]);
 
-  // Handle zoom out button
   useEffect(() => {
     if (zoomOut) {
-      const newScale = Math.max(0.5, transform.scale - 0.2);
-      setTransform(prev => ({
+      setTransform((prev) => ({
         ...prev,
-        scale: newScale
+        scale: Math.max(0.5, prev.scale - 0.2),
       }));
     }
   }, [zoomOut]);
 
-  // Handle reset view button
   useEffect(() => {
     if (resetView) {
       setTransform({ x: 200, y: 50, scale: 1.2 });
@@ -142,24 +129,31 @@ const TreeCanvas = ({
     );
   }
 
+  // ✅ Recursive relationship renderer (parent to children)
   const renderRelationships = () => {
     const lines: JSX.Element[] = [];
-    for (let i = 0; i < positionedNodes.length - 1; i++) {
-      const node1 = positionedNodes[i];
-      const node2 = positionedNodes[i + 1];
 
-      lines.push(
-        <RelationshipLine
-          key={`rel-${node1.id}-${node2.id}`}
-          x1={node1.x}
-          y1={node1.y}
-          x2={node2.x}
-          y2={node2.y}
-          type="family"
-          lineStyle="curved"
-        />,
-      );
-    }
+    const drawLines = (node) => {
+      if (!node.children || node.children.length === 0) return;
+      node.children.forEach((child) => {
+        lines.push(
+          <RelationshipLine
+            key={`rel-${node.id}-${child.id}`}
+            x1={node.x}
+            y1={node.y}
+            x2={child.x}
+            y2={child.y}
+            type="family"
+            lineStyle="curved"
+          />,
+        );
+        drawLines(child);
+      });
+    };
+
+    positionedNodes.forEach((node) => drawLines(node));
+
+    console.log("🔗 Drawing", lines.length, "relationship lines");
     return lines;
   };
 
@@ -176,14 +170,17 @@ const TreeCanvas = ({
         <g
           transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
         >
+          {/* Draw lines first so they appear under the nodes */}
           {renderRelationships()}
+
+          {/* Render all nodes */}
           {positionedNodes.map((member) => (
             <TreeNode
               key={member.id}
               member={member}
               x={member.x}
               y={member.y}
-              size={getNodeSize(member)}
+              size={getNodeSize()}
               onClick={() => onNodeClick?.(member)}
             />
           ))}
@@ -197,7 +194,7 @@ export default TreeCanvas;
 
 // === Layout Functions ===
 
-function layoutNodes(nodes, layout: VisualizationType) {
+function layoutNodes(nodes: any[], layout: VisualizationType) {
   switch (layout) {
     case "hierarchical":
       return layoutHierarchical(nodes);
@@ -206,33 +203,36 @@ function layoutNodes(nodes, layout: VisualizationType) {
     case "sociogram":
       return layoutSociogram(nodes);
     case "ancestor":
-      return layoutHierarchical(nodes); // Customize later
+      return layoutHierarchical(nodes); // Placeholder
     case "descendant":
-      return layoutHierarchical(nodes); // Customize later
+      return layoutHierarchical(nodes); // Placeholder
     default:
       return layoutHierarchical(nodes);
   }
 }
 
-function layoutHierarchical(nodes, depth = 0, xOffset = { value: 0 }) {
+// ✅ Recursive layout to space parent/children vertically
+function layoutHierarchical(nodes: any[], depth = 0, xOffset = { value: 0 }) {
   let positioned = [];
+
   nodes.forEach((node) => {
     const x = xOffset.value * 180;
     const y = depth * 160;
-    positioned.push({ ...node, x, y });
+    const positionedNode = { ...node, x, y };
+    positioned.push(positionedNode);
 
     xOffset.value += 1;
 
-    if (node.children?.length) {
-      positioned = positioned.concat(
-        layoutHierarchical(node.children, depth + 1, xOffset),
-      );
+    if (node.children?.length > 0) {
+      const childNodes = layoutHierarchical(node.children, depth + 1, xOffset);
+      positioned = positioned.concat(childNodes);
     }
   });
+
   return positioned;
 }
 
-function layoutFlat(nodes) {
+function layoutFlat(nodes: any[]) {
   return nodes.map((node, index) => ({
     ...node,
     x: index * 180,
@@ -240,7 +240,7 @@ function layoutFlat(nodes) {
   }));
 }
 
-function layoutSociogram(nodes) {
+function layoutSociogram(nodes: any[]) {
   const centerX = 300;
   const centerY = 300;
   const radius = 200;

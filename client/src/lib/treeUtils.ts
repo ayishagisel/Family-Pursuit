@@ -1,10 +1,39 @@
-/**
- * Build a hierarchical family tree from the API data
- * This function organizes the data from the relationships API into a hierarchical tree structure
- * The API gives us members with children, parents, spouses, etc. arrays, but we need to
- * organize it into a proper tree for visualization
- */
-export function buildFamilyTree(hierarchicalData) {
+export function buildFamilyTree(flatData) {
+  const map = new Map();
+  const roots = [];
+
+  // First: create a map of all members and initialize children arrays
+  flatData.forEach((member) => {
+    member.children = [];
+    console.log("🧾 member shape:", JSON.stringify(member, null, 2));
+    map.set(member.id, member);
+  });
+
+  // Second: assign children to their parents
+  flatData.forEach((member) => {
+    console.log(
+      `🧩 ID: ${member.id} | Name: ${member.name} | Parent ID: ${member.parent}`,
+    );
+
+    if (member.parent !== null && map.has(member.parent)) {
+      const parent = map.get(member.parent);
+      parent.children.push(member);
+    } else {
+      console.warn(
+        "👀 Root or unmatched parent:",
+        member.name,
+        "→ parent:",
+        member.parent,
+      );
+      roots.push(member);
+    }
+  });
+
+  console.log("🌳 Final nested tree roots:", JSON.stringify(roots, null, 2));
+  return roots;
+}
+
+export function buildHierarchicalTree(hierarchicalData) {
   if (!hierarchicalData || !Array.isArray(hierarchicalData)) {
     console.error("Invalid hierarchical data provided", hierarchicalData);
     return [];
