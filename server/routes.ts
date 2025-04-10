@@ -878,12 +878,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze family relationships for insights
   app.get("/api/analyze/relationships", async (req: Request, res: Response) => {
     try {
-      // Just immediately send a fallback response with data from the family
-      console.log("Generating fallback relationship analysis directly");
+      console.log("Starting relationship analysis...");
       
       // Retrieve data
       const familyMembers = await storage.getAllFamilyMembers();
+      console.log(`Retrieved ${familyMembers.length} family members`);
+      
       const relationships = await storage.getAllRelationships();
+      console.log(`Retrieved ${relationships.length} relationships`);
+
+      try {
+        // Call our aiService to analyze relationships
+        console.log("Calling aiService.analyzeRelationships...");
+        const analysis = await aiService.analyzeRelationships(
+          familyMembers,
+          relationships,
+        );
+        console.log("AI service returned analysis result");
+
+        // Check if there was an error in the analysis
+        if (analysis.error) {
+          console.log("Analysis has error:", analysis.analysis);
+          // Continue to fallback if there's an error
+        } else {
+          // If analysis is successful, return it
+          return res.json(analysis);
+        }
+      } catch (aiError: any) {
+        console.error("Error in AI analysis:", aiError);
+        // Continue to fallback on error
+      }
+      
+      // Generate fallback content as a backup
+      console.log("Generating fallback relationship analysis...");
       
       // Count generations by analyzing birth years
       const birthYears = familyMembers
@@ -925,6 +952,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const commonTraits = Array.from(traits).slice(0, 5);
       const commonInterests = Array.from(interests).slice(0, 5);
       
+      console.log("Sending fallback analysis response");
       return res.json({
         analysis: `
 ## Family Structure Analysis
