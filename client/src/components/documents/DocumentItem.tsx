@@ -62,14 +62,26 @@ const DocumentItem = ({ document, onDownload }: DocumentItemProps) => {
   
   // Format the time ago string
   const formatTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - new Date(date).getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (!date) return "Unknown date";
     
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days} days ago`;
-    return format(new Date(date), "MMM d, yyyy");
+    try {
+      // Ensure date is valid
+      if (isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+      
+      const now = new Date();
+      const diff = now.getTime() - date.getTime();
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      
+      if (days === 0) return "Today";
+      if (days === 1) return "Yesterday";
+      if (days < 7) return `${days} days ago`;
+      return format(date, "MMM d, yyyy");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid date format";
+    }
   };
 
   return (
