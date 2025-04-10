@@ -183,3 +183,31 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+
+// Housing Issues schema
+export const housingIssues = pgTable("housing_issues", {
+  id: serial("id").primaryKey(),
+  family_member_id: integer("family_member_id").references(() => familyMembers.id),
+  address: text("address").notNull(),
+  issue_type: text("issue_type").notNull(),
+  description: text("description"),
+  linked_document_id: integer("linked_document_id").references(() => documents.id),
+  created_at: timestamp("created_at").defaultNow(),
+  resolved: boolean("resolved").default(false),
+  resolution_notes: text("resolution_notes"),
+  hpd_violations: jsonb("hpd_violations").default("[]"),
+});
+
+export const insertHousingIssueSchema = createInsertSchema(housingIssues).pick({
+  family_member_id: true,
+  address: true,
+  issue_type: true,
+  description: true,
+  linked_document_id: true,
+  resolved: true,
+  resolution_notes: true,
+  hpd_violations: true,
+});
+
+export type InsertHousingIssue = z.infer<typeof insertHousingIssueSchema>;
+export type HousingIssue = typeof housingIssues.$inferSelect;

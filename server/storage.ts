@@ -5,7 +5,8 @@ import {
   Event, InsertEvent, events,
   Document, InsertDocument, documents,
   HelpRequest, InsertHelpRequest, helpRequests,
-  Message, InsertMessage, messages
+  Message, InsertMessage, messages,
+  HousingIssue, InsertHousingIssue, housingIssues
 } from "@shared/schema";
 import { DatabaseStorage } from "./storage.db";
 
@@ -65,6 +66,15 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: number): Promise<Message | undefined>;
   deleteMessage(id: number): Promise<boolean>;
+  
+  // Housing Issue methods
+  getHousingIssue(id: number): Promise<HousingIssue | undefined>;
+  getHousingIssuesByMember(memberId: number): Promise<HousingIssue[]>;
+  getAllHousingIssues(): Promise<HousingIssue[]>;
+  createHousingIssue(issue: InsertHousingIssue): Promise<HousingIssue>;
+  updateHousingIssue(id: number, issue: Partial<InsertHousingIssue>): Promise<HousingIssue | undefined>;
+  deleteHousingIssue(id: number): Promise<boolean>;
+  checkHPDViolations(address: string): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -75,6 +85,7 @@ export class MemStorage implements IStorage {
   private documents: Map<number, Document>;
   private helpRequests: Map<number, HelpRequest>;
   private messages: Map<number, Message>;
+  private housingIssues: Map<number, HousingIssue>;
   
   currentUserId: number;
   currentFamilyMemberId: number;
@@ -83,6 +94,7 @@ export class MemStorage implements IStorage {
   currentDocumentId: number;
   currentHelpRequestId: number;
   currentMessageId: number;
+  currentHousingIssueId: number;
 
   constructor() {
     this.users = new Map();
@@ -92,6 +104,7 @@ export class MemStorage implements IStorage {
     this.documents = new Map();
     this.helpRequests = new Map();
     this.messages = new Map();
+    this.housingIssues = new Map();
     
     this.currentUserId = 1;
     this.currentFamilyMemberId = 1;
@@ -100,6 +113,7 @@ export class MemStorage implements IStorage {
     this.currentDocumentId = 1;
     this.currentHelpRequestId = 1;
     this.currentMessageId = 1;
+    this.currentHousingIssueId = 1;
     
     // Initialize with some default data
     this.initializeData();

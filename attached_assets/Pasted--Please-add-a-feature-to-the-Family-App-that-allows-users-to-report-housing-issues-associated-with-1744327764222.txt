@@ -1,0 +1,42 @@
+🚀 Please add a feature to the Family App that allows users to report housing issues associated with specific family members. This feature should integrate with NYC HPD Housing Violations data.
+
+📌 Functional Requirements:
+
+1. **New Feature: Housing Issue Reporting**
+   - Add a button or menu item labeled "Report Housing Issue" on the Family Member profile page (TreeNode or DocumentItem view).
+   - When clicked, open a form that lets users input:
+     - Address of the property
+     - Type of issue (dropdown: "No heat", "Water damage", "Mold", "Pests", "Structural", "Other")
+     - Description (textarea)
+     - Optionally link to an existing document (e.g., lease, deed)
+     - Optionally tag a family member as the resident or property owner
+
+2. **Data Storage:**
+   - Create a new `housing_issues` table in the database:
+     ```ts
+     export const housing_issues = pgTable("housing_issues", {
+       id: serial("id").primaryKey(),
+       family_member_id: integer("family_member_id").references(() => familyMembers.id),
+       address: text("address").notNull(),
+       issue_type: text("issue_type").notNull(),
+       description: text("description"),
+       linked_document_id: integer("linked_document_id").references(() => documents.id),
+       created_at: timestamp("created_at").defaultNow(),
+     });
+     ```
+
+3. **Display Issues:**
+   - Show reported issues on the corresponding family member’s profile.
+   - Include a summary view (e.g., status: “Reported”, “Resolved”) with filters by address or issue type.
+
+4. **Optional: Integrate NYC HPD Housing Violation Data**
+   - After user submits an issue, run a background match against the NYC HPD dataset:
+     - Cross-check by address
+     - If violations are found, display matches in a separate section: "Public Housing Records"
+     - Optionally display matched violations inline in the issue report form for reference
+
+5. **Logging:**
+   - Log form submissions and any HPD matches to the console for developer validation.
+   - Provide test data and screenshots to confirm proper function.
+
+Please provide confirmation of successful table creation, UI updates, and API integration points.
