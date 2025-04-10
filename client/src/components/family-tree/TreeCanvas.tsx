@@ -287,6 +287,16 @@ function processHierarchicalData(nodes: any[], visualizationType: VisualizationT
 
 // Create a family hierarchy with proper parent-child relationships
 function createFamilyHierarchy(nodes: any[]) {
+  if (!nodes || nodes.length === 0) {
+    return {
+      id: "root",
+      name: "Family Root",
+      children: []
+    };
+  }
+  
+  console.log("Building hierarchical family tree with", nodes.length, "members");
+  
   // Create an artificial root node for the hierarchy
   const rootNode = {
     id: "root",
@@ -306,29 +316,44 @@ function createFamilyHierarchy(nodes: any[]) {
       generation: node.generation || 0
     };
     nodeMap.set(node.id, processedNode);
+    
+    // Debug logging for generation assignments
+    console.log(`ID: ${node.id} | Name: ${node.name} | Parent ID: ${node.parent || 'null'} | Generation: ${node.generation || 'unknown'}`);
   });
   
-  // Find parents with children and establish the relationships
+  // First, establish parent-child relationships
   nodes.forEach(node => {
-    // Skip already processed nodes
-    if (nodeMap.get(node.id)._processed) return;
-    
     const currentNode = nodeMap.get(node.id);
     
-    // Process children
-    if (node.children && node.children.length > 0) {
+    // Skip if already fully processed
+    if (currentNode._processed) return;
+    
+    // If node has a parent, establish the relationship
+    if (node.parent) {
+      const parentNode = nodeMap.get(node.parent);
+      if (parentNode) {
+        // Add this node as a child of the parent
+        if (!parentNode.children.some((child: any) => child.id === node.id)) {
+          parentNode.children.push(currentNode);
+        }
+      }
+    }
+    
+    // Process explicit children references
+    if (node.children && Array.isArray(node.children) && node.children.length > 0) {
       node.children.forEach((childRef: any) => {
         const childNode = nodeMap.get(childRef.id);
-        if (childNode && !childNode._processed) {
+        if (childNode && !currentNode.children.some((c: any) => c.id === childRef.id)) {
           // Add child to parent's children array
           currentNode.children.push(childNode);
-          // Mark as processed to avoid duplicates
-          childNode._processed = true;
+          
+          // Set parent reference on the child for backward navigation
+          childNode.parent = node.id;
         }
       });
     }
     
-    // Process spouses - add to parent node's special property
+    // Process spouses - add to parent node's special property  
     if (node.spouses && node.spouses.length > 0) {
       currentNode.spouses = [];
       node.spouses.forEach((spouseRef: any) => {
@@ -337,9 +362,19 @@ function createFamilyHierarchy(nodes: any[]) {
           // Store spouse reference
           currentNode.spouses.push(spouseNode);
           
-          // First spouse is primary
+          // Make first spouse the primary spouse
           if (!currentNode.spouse) {
             currentNode.spouse = spouseNode;
+          }
+          
+          // Also establish shared children
+          // Children of either spouse become children of both
+          if (spouseNode.children && spouseNode.children.length > 0) {
+            spouseNode.children.forEach((childNode: any) => {
+              if (!currentNode.children.some((c: any) => c.id === childNode.id)) {
+                currentNode.children.push(childNode);
+              }
+            });
           }
         }
       });
@@ -352,25 +387,70 @@ function createFamilyHierarchy(nodes: any[]) {
   // Find nodes without parents to serve as roots
   const rootNodes = [];
   
-  // Converting entries to array to avoid iterator issues
+  // Convert entries to array to avoid iterator issues
   const nodeEntries = Array.from(nodeMap.entries());
   for (const [id, node] of nodeEntries) {
-    // A node is a root if it has no parent or its generation is 0
-    const isRoot = (node.generation === 0 || node.generation === 1) && 
-                  (!node.parent || node.parent === null);
+    // Determine if this is a root node
+    // Root nodes are either explicitly marked as generation 0/1
+    // or don't have a parent reference
+    const hasParent = node.parent && nodeMap.get(node.parent);
+    const isOldestGeneration = node.generation === 0 || node.generation === 1;
     
-    if (isRoot) {
+    // Consider a node a root if it has no parent or is in the oldest generation
+    if ((!hasParent) || isOldestGeneration) {
       rootNodes.push(node);
     }
   }
   
-  // If we found valid roots, add them to the artificial root
-  if (rootNodes.length > 0) {
-    rootNode.children = rootNodes;
+  console.log("Found", rootNodes.length, "root nodes in family tree");
+  
+  // For a true family tree, we should have only 1-2 root nodes
+  // If we have too many roots, do some cleanup
+  if (rootNodes.length > 2) {
+    console.warn("Too many root nodes detected, restructuring by generation");
+    
+    // Sort roots by generation and relationship
+    rootNodes.sort((a, b) => {
+      // Prioritize by generation first
+      if (a.generation !== b.generation) {
+        // Treat undefined generations as higher (newer)
+        if (a.generation === undefined) return 1;
+        if (b.generation === undefined) return -1;
+        return a.generation - b.generation;
+      }
+      
+      // Then prioritize by birth date if available
+      if (a.birth_date && b.birth_date) {
+        return new Date(a.birth_date).getTime() - new Date(b.birth_date).getTime();
+      }
+      
+      return 0;
+    });
+    
+    // Use just the first two nodes as true roots
+    rootNode.children = rootNodes.slice(0, 2);
+    
+    // Try to establish parent-child relationships for the remaining "root" nodes
+    // by looking at generation differences
+    const remainingRoots = rootNodes.slice(2);
+    remainingRoots.forEach(node => {
+      // Find an existing root that could be this node's parent
+      const potentialParent = rootNode.children.find((root: any) => {
+        return root.generation < node.generation;
+      });
+      
+      if (potentialParent) {
+        potentialParent.children.push(node);
+      } else {
+        // If we can't find a good parent, add to first root
+        if (rootNode.children.length > 0) {
+          rootNode.children[0].children.push(node);
+        }
+      }
+    });
   } else {
-    // If no roots were found, use all nodes as roots
-    // This can happen with inconsistent data
-    rootNode.children = Array.from(nodeMap.values());
+    // If we have a reasonable number of root nodes, use them directly
+    rootNode.children = rootNodes;
   }
   
   return rootNode;
