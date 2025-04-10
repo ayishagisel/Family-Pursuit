@@ -179,7 +179,7 @@ const DocumentsPage = () => {
           </div>
           
           <div className="p-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <button 
                 className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'generic' ? 'ring-2 ring-primary' : ''}`}
                 onClick={() => setFilter('generic')}
@@ -220,6 +220,19 @@ const DocumentsPage = () => {
               </button>
               
               <button 
+                className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'financial' ? 'ring-2 ring-green-500' : ''}`}
+                onClick={() => setFilter('financial')}
+              >
+                <div className="text-4xl text-green-500 mb-2">
+                  <i className="fas fa-file-invoice-dollar"></i>
+                </div>
+                <div className="font-medium">Financial</div>
+                <div className="text-xs text-neutral-500">
+                  {documents.filter(doc => doc.documentType === 'financial').length || 0} documents
+                </div>
+              </button>
+              
+              <button 
                 className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'medical' ? 'ring-2 ring-red-500' : ''}`}
                 onClick={() => setFilter('medical')}
               >
@@ -229,6 +242,19 @@ const DocumentsPage = () => {
                 <div className="font-medium">Medical</div>
                 <div className="text-xs text-neutral-500">
                   {documents.filter(doc => doc.documentType === 'medical').length || 0} documents
+                </div>
+              </button>
+              
+              <button 
+                className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'intellectual' ? 'ring-2 ring-blue-500' : ''}`}
+                onClick={() => setFilter('intellectual')}
+              >
+                <div className="text-4xl text-blue-500 mb-2">
+                  <i className="fas fa-file-certificate"></i>
+                </div>
+                <div className="font-medium">Intellectual</div>
+                <div className="text-xs text-neutral-500">
+                  {documents.filter(doc => doc.documentType === 'intellectual').length || 0} documents
                 </div>
               </button>
             </div>

@@ -154,7 +154,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(documents)
-      .where(eq(documents.documentType, "secure"));
+      .where(eq(documents.accessLevel, "admin"));
   }
 
   async createDocument(document: InsertDocument): Promise<Document> {
