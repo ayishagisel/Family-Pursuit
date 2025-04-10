@@ -189,24 +189,55 @@ const TreeCanvas = ({
       // Choose line style based on relationship type
       let lineStyle: "straight" | "horizontal" | "vertical" | "curved" | "dashed" = "straight";
       
+      // Determine line style based on relationship type
       if (rel.type === "spouse") {
         lineStyle = "horizontal";
       } else if (rel.type === "parent-child") {
         lineStyle = "vertical";
       } else if (rel.type === "sibling") {
         lineStyle = "curved";
-      }
-      
-      // If this is a step, adoptive, or extended relationship, use dashed lines
-      if (rel.relationshipType.includes("step") || 
-          rel.relationshipType.includes("adopt") || 
-          rel.relationshipType === "extended") {
+      } else if (rel.type === "extended") {
         lineStyle = "dashed";
       }
       
+      // Check for special relationship types
+      const srcRole = rel.source.role?.toLowerCase() || "";
+      const tgtRole = rel.target.role?.toLowerCase() || "";
+      const relType = rel.relationshipType?.toLowerCase() || "";
+      
+      // Handle step relationships
+      if (
+        relType.includes("step") || 
+        srcRole.includes("step") || 
+        tgtRole.includes("step")
+      ) {
+        lineStyle = "dashed";
+      }
+      
+      // Handle adoptive relationships
+      if (
+        relType.includes("adopt") || 
+        srcRole.includes("adopt") || 
+        tgtRole.includes("adopt")
+      ) {
+        lineStyle = "dashed";
+      }
+      
+      // Handle grand relationships
+      if (
+        srcRole.includes("grand") || 
+        tgtRole.includes("grand")
+      ) {
+        // Use vertical, but might modify the style
+        lineStyle = "vertical";
+      }
+      
+      // Create a unique key for the relationship line
+      const relationshipKey = `rel-${index}-${rel.source.id}-${rel.target.id}-${rel.type}`;
+      
       return (
         <RelationshipLine
-          key={`rel-${index}-${rel.source.id}-${rel.target.id}`}
+          key={relationshipKey}
           x1={rel.source.x}
           y1={rel.source.y}
           x2={rel.target.x}
@@ -385,12 +416,106 @@ function createFamilyHierarchy(nodes: any[]) {
 
 // Layout nodes based on generation info from API
 function applyGenerationBasedLayout(nodes: any[]): PositionedNode[] {
-  // Group nodes by generation
-  const generationGroups = new Map<number, any[]>();
+  // Create a map for quick lookup of nodes and their relationship info
+  const nodeMap = new Map<number, any>();
   const positionedNodes: PositionedNode[] = [];
-  const processedSpouses = new Set<number>();
+  const processedNodes = new Set<number>(); // Track which nodes have been positioned
   
-  // Group nodes by their generation value
+  // First, create a lookup map and identify family units
+  nodes.forEach(node => {
+    nodeMap.set(node.id, node);
+  });
+  
+  // Identify primary family units (nuclear families)
+  const primaryUnits: {
+    parents: number[],
+    children: number[],
+    generation: number
+  }[] = [];
+  
+  // Find all parent-child combinations to identify family units
+  nodes.forEach(node => {
+    // If this node has children
+    if (node.children && node.children.length > 0) {
+      const familyUnit = {
+        parents: [node.id],
+        children: node.children.map((child: any) => child.id),
+        generation: node.generation || 0
+      };
+      
+      // If this node has a spouse, add spouse to the parents
+      if (node.spouses && node.spouses.length > 0) {
+        familyUnit.parents.push(node.spouses[0].id);
+      }
+      
+      primaryUnits.push(familyUnit);
+    }
+    
+    // If this node has parents
+    if (node.parents && node.parents.length > 0) {
+      // Make sure parent generations are correct relative to this node
+      node.parents.forEach((parent: any) => {
+        const parentNode = nodeMap.get(parent.id);
+        if (parentNode && parentNode.generation === undefined) {
+          parentNode.generation = (node.generation || 0) - 1;
+        }
+      });
+    }
+  });
+  
+  console.log(`Identified ${primaryUnits.length} primary family units`);
+  
+  // Identify step-families (where a parent has children but is connected to a different spouse)
+  const stepFamilies: {
+    parentId: number,
+    stepParentId: number,
+    stepChildren: number[],
+    generation: number
+  }[] = [];
+  
+  // Look for step-parent relationships in the nodes
+  nodes.forEach(node => {
+    if (node.role && node.role.toLowerCase().includes('step')) {
+      // This is a step-parent or step-child
+      const isStepParent = node.role.toLowerCase().includes('father') || 
+                           node.role.toLowerCase().includes('mother');
+      
+      if (isStepParent) {
+        // Find this step-parent's spouse
+        if (node.spouses && node.spouses.length > 0) {
+          const spouseId = node.spouses[0].id;
+          const spouse = nodeMap.get(spouseId);
+          
+          if (spouse) {
+            // Find spouse's children (who would be step-children to this node)
+            const stepChildrenIds = spouse.children?.map((child: any) => child.id) || [];
+            
+            if (stepChildrenIds.length > 0) {
+              stepFamilies.push({
+                parentId: spouseId,
+                stepParentId: node.id,
+                stepChildren: stepChildrenIds,
+                generation: node.generation || 0
+              });
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(`Identified ${stepFamilies.length} step-family relationships`);
+  
+  // Find the min generation to normalize vertical positioning
+  let minGeneration = 0;
+  nodes.forEach(node => {
+    if (node.generation !== undefined && node.generation < minGeneration) {
+      minGeneration = node.generation;
+    }
+  });
+  
+  // Organize nodes by generation for horizontal positioning
+  const generationGroups = new Map<number, any[]>();
   nodes.forEach(node => {
     const generation = node.generation !== undefined ? node.generation : 0;
     if (!generationGroups.has(generation)) {
@@ -399,27 +524,25 @@ function applyGenerationBasedLayout(nodes: any[]): PositionedNode[] {
     generationGroups.get(generation)?.push(node);
   });
   
-  console.log("Grouped nodes into", generationGroups.size, "generations");
-  
-  // Find the min/max generation to normalize
-  const allGenerations = Array.from(generationGroups.keys());
-  const minGeneration = Math.min(...allGenerations);
-  
-  // Calculate positions for each node by generation
+  // Calculate horizontal positions for each generation
   generationGroups.forEach((generationNodes, generation) => {
     const normalizedGeneration = generation - minGeneration;
     const verticalPosition = normalizedGeneration * 160 + 100; // 160px between generations
     
     // Position nodes horizontally within their generation
-    const nodeCount = generationNodes.length;
-    generationNodes.forEach((node, index) => {
-      // Skip if this is a spouse that's already been processed
-      if (processedSpouses.has(node.id)) {
-        return;
-      }
+    // Sort nodes by family units to keep families together
+    const sortedNodes = generationNodes.slice();
+    const nodeCount = sortedNodes.length;
+    const horizontalSpacing = Math.max(150, 800 / (nodeCount + 1));
+    
+    // First pass: Position regular nodes
+    for (let i = 0; i < sortedNodes.length; i++) {
+      const node = sortedNodes[i];
       
-      const horizontalSpacing = Math.max(150, window.innerWidth / (nodeCount + 1));
-      const xPosition = (index + 1) * horizontalSpacing;
+      // Skip if already processed
+      if (processedNodes.has(node.id)) continue;
+      
+      const xPosition = (i + 1) * horizontalSpacing;
       
       // Create positioned node
       const uniqueNodeId = `node-${node.id}`;
@@ -430,29 +553,116 @@ function applyGenerationBasedLayout(nodes: any[]): PositionedNode[] {
         _uniqueKey: uniqueNodeId
       });
       
-      // Handle spouse (if any) - place next to this node
+      // Mark as processed
+      processedNodes.add(node.id);
+      
+      // Position spouse, if any
       if (node.spouses && node.spouses.length > 0) {
-        const spouseRef = node.spouses[0];
-        if (spouseRef && !processedSpouses.has(spouseRef.id)) {
-          // Find the spouse node in the original dataset
-          const spouseNode = nodes.find(n => n.id === spouseRef.id);
-          if (spouseNode) {
-            const uniqueSpouseId = `spouse-${spouseNode.id}`;
-            positionedNodes.push({
-              ...spouseNode,
-              x: xPosition + 100, // Position spouse to the right
-              y: verticalPosition, // Same vertical level
-              _uniqueKey: uniqueSpouseId
-            });
-            
-            processedSpouses.add(spouseNode.id);
-            
-            // Also mark the original node as processed in case spouse refers back
-            processedSpouses.add(node.id);
+        // Find a spouse that hasn't been processed yet
+        for (let j = 0; j < node.spouses.length; j++) {
+          const spouseRef = node.spouses[j];
+          if (!processedNodes.has(spouseRef.id)) {
+            // Find the spouse node in the original dataset
+            const spouseNode = nodeMap.get(spouseRef.id);
+            if (spouseNode) {
+              // Check if spouse is a step-parent
+              const isStepParent = spouseNode.role && 
+                                   spouseNode.role.toLowerCase().includes('step') &&
+                                   (spouseNode.role.toLowerCase().includes('father') || 
+                                    spouseNode.role.toLowerCase().includes('mother'));
+              
+              // Adjust horizontal position based on relationship type
+              let spouseOffset = 100;
+              if (isStepParent) {
+                // Position step-parents with more distance
+                spouseOffset = 150;
+              }
+              
+              const uniqueSpouseId = `spouse-${spouseNode.id}`;
+              positionedNodes.push({
+                ...spouseNode,
+                x: xPosition + spouseOffset,
+                y: verticalPosition,
+                _uniqueKey: uniqueSpouseId
+              });
+              
+              // Mark spouse as processed
+              processedNodes.add(spouseRef.id);
+              break; // Only process one spouse (first one found)
+            }
           }
         }
       }
-    });
+    }
+  });
+  
+  // Ensure special family roles are properly positioned
+  positionedNodes.forEach(node => {
+    // Process grandparents - should always be above regular parents
+    if (node.role && node.role.toLowerCase().includes('grand')) {
+      // Find the highest parent node (minimum y value)
+      const parentNodes = positionedNodes.filter(n => 
+        n.generation === 0 && 
+        !n.role?.toLowerCase().includes('grand') &&
+        (n.role?.toLowerCase().includes('father') || n.role?.toLowerCase().includes('mother'))
+      );
+      
+      if (parentNodes.length > 0) {
+        // Position grandparents one generation higher than parents
+        const minParentY = Math.min(...parentNodes.map(p => p.y));
+        node.y = minParentY - 160;
+        
+        // Also update generation for correct future positioning
+        node.generation = -1;
+      }
+    }
+    
+    // Process step-parents - adjust position to show they're different from biological parents
+    if (node.role && node.role.toLowerCase().includes('step') &&
+        (node.role.toLowerCase().includes('father') || node.role.toLowerCase().includes('mother'))) {
+      
+      // Find which parent this step-parent is matched with
+      const biologicalParentIds = new Set<number>();
+      
+      // Find biological parents of any children
+      positionedNodes.forEach(potentialChild => {
+        if (potentialChild.generation === 1) { // Children are in generation 1
+          // If this node is listed as a parent of the child
+          if (potentialChild.parents) {
+            potentialChild.parents.forEach((parent: any) => {
+              // Skip if this is the step-parent we're processing
+              if (parent.id === node.id) return;
+              
+              // Find parent by ID
+              const parentNode = positionedNodes.find(p => p.id === parent.id);
+              if (parentNode && !parentNode.role?.toLowerCase().includes('step')) {
+                biologicalParentIds.add(parent.id);
+              }
+            });
+          }
+        }
+      });
+      
+      // If we found a biological parent that this step-parent should be positioned with
+      if (biologicalParentIds.size > 0) {
+        // Take the first biological parent we found
+        const biologicalParentId = Array.from(biologicalParentIds)[0];
+        const biologicalParent = positionedNodes.find(p => p.id === biologicalParentId);
+        
+        if (biologicalParent) {
+          // Position the step-parent next to the biological parent with an offset
+          node.x = biologicalParent.x + 130;
+          node.y = biologicalParent.y;
+        }
+      }
+    }
+  });
+  
+  // Ensure all nodes have a unique key
+  positionedNodes.forEach((node, index) => {
+    if (!node._uniqueKey) {
+      node._uniqueKey = `node-${index}-${node.id}`;
+    }
   });
   
   return positionedNodes;
