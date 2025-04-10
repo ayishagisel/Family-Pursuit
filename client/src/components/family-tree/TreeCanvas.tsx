@@ -617,42 +617,52 @@ function applyGenerationBasedLayout(nodes: any[]): PositionedNode[] {
       }
     }
     
-    // Process step-parents - adjust position to show they're different from biological parents
+    // Process step-parents - position them horizontally next to their spouse
     if (node.role && node.role.toLowerCase().includes('step') &&
         (node.role.toLowerCase().includes('father') || node.role.toLowerCase().includes('mother'))) {
       
-      // Find which parent this step-parent is matched with
-      const biologicalParentIds = new Set<number>();
-      
-      // Find biological parents of any children
-      positionedNodes.forEach(potentialChild => {
-        if (potentialChild.generation === 1) { // Children are in generation 1
-          // If this node is listed as a parent of the child
-          if (potentialChild.parents) {
-            potentialChild.parents.forEach((parent: any) => {
-              // Skip if this is the step-parent we're processing
-              if (parent.id === node.id) return;
-              
-              // Find parent by ID
-              const parentNode = positionedNodes.find(p => p.id === parent.id);
-              if (parentNode && !parentNode.role?.toLowerCase().includes('step')) {
-                biologicalParentIds.add(parent.id);
-              }
-            });
-          }
-        }
-      });
-      
-      // If we found a biological parent that this step-parent should be positioned with
-      if (biologicalParentIds.size > 0) {
-        // Take the first biological parent we found
-        const biologicalParentId = Array.from(biologicalParentIds)[0];
-        const biologicalParent = positionedNodes.find(p => p.id === biologicalParentId);
+      // If this step-parent has a spouse, find them and position accordingly
+      if (node.spouses && node.spouses.length > 0) {
+        const spouseId = node.spouses[0].id;
+        const spouse = positionedNodes.find(n => n.id === spouseId);
         
-        if (biologicalParent) {
-          // Position the step-parent next to the biological parent with an offset
-          node.x = biologicalParent.x + 130;
-          node.y = biologicalParent.y;
+        if (spouse) {
+          // Position step-parent next to spouse, with a larger gap to show the step relationship
+          node.x = spouse.x + 150; // Larger gap than regular spouses
+          
+          // Keep on same level as spouse (they're still married, just showing step relationship differently)
+          node.y = spouse.y;
+        }
+      }
+      // If no spouse found, check for biological parents of the same children
+      else {
+        const hasChildren = positionedNodes.some(otherNode => {
+          if (otherNode.parents) {
+            return otherNode.parents.some((parent: any) => parent.id === node.id);
+          }
+          return false;
+        });
+        
+        if (hasChildren) {
+          // For now, keep them at the parent level but offset from main parents
+          // Try to find a non-step parent to position relative to
+          const nonStepParent = positionedNodes.find(n => 
+            n.generation === 0 && 
+            !n.role?.toLowerCase().includes('step') && 
+            (n.role?.toLowerCase().includes('father') || n.role?.toLowerCase().includes('mother'))
+          );
+          
+          if (nonStepParent) {
+            // Position to the right of regular parents
+            const maxParentX = Math.max(...positionedNodes
+              .filter(n => n.generation === 0)
+              .map(n => n.x));
+            
+            node.x = maxParentX + 200; // Position after the rightmost parent
+            
+            // Stay at parent level
+            node.y = nonStepParent.y;
+          }
         }
       }
     }
