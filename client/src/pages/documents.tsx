@@ -59,7 +59,7 @@ const DocumentsPage = () => {
     mutationFn: async () => {
       const title = titleInputRef.current?.value || 'Untitled Document';
       
-      // Determine document type from file extension
+      // Determine document type from file extension and security settings
       let documentType = 'generic';
       if (selectedFile) {
         const fileName = selectedFile.name.toLowerCase();
@@ -70,6 +70,11 @@ const DocumentsPage = () => {
         } else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
           documentType = filter || 'generic';
         }
+        
+        // Encode security info in documentType if secure
+        if (isSecure) {
+          documentType = `${documentType}_secure_${accessLevel}`;
+        }
       }
       
       // Create new document
@@ -78,8 +83,9 @@ const DocumentsPage = () => {
         content: selectedFile ? selectedFile.name : 'No content',
         user_id: 1, // Current user ID
         documentType,
-        isSecure,
-        accessLevel,
+        // These fields aren't in the actual schema - workaround:
+        // We'll use document_type field to encode security info
+        // Format: isSecure ? documentType + "_secure_" + accessLevel : documentType
         permissions: {}
       };
       
