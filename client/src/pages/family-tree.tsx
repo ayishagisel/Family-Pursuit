@@ -3,6 +3,7 @@ import { useFamilyTree } from "../hooks/useFamilyTree";
 import { buildFamilyTree, TreeMember } from "../lib/treeUtils";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
+import FamilyInsights from "@/components/ai/FamilyInsights";
 import {
   Card,
   CardContent,
@@ -319,28 +320,7 @@ const FamilyTreePage: React.FC = () => {
                     </TabsContent>
 
                     <TabsContent value="insights" className="mt-4">
-                      <ScrollArea className="h-[400px] rounded-md border p-4">
-                        {isDetailLoading ? (
-                          <div className="flex justify-center items-center h-32">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                          </div>
-                        ) : memberDetails?.insights ? (
-                          <div className="prose max-w-none dark:prose-invert">
-                            <h3>Family Insights</h3>
-                            <div dangerouslySetInnerHTML={{ 
-                              __html: memberDetails.insights
-                                .replace(/\n\s*\n/g, '<br><br>')
-                                .replace(/\n(?!\s*<)/g, '<br>')
-                                .replace(/\# ([^\n]+)/g, '<h4>$1</h4>') // Support markdown headings
-                            }} />
-                          </div>
-                        ) : (
-                          <div className="text-center text-muted-foreground">
-                            <p>No insights available for this family member.</p>
-                            <p className="text-sm mt-2">Select 'Story' to see their narrative instead.</p>
-                          </div>
-                        )}
-                      </ScrollArea>
+                      <FamilyInsights memberId={selectedMember?.id} />
                     </TabsContent>
                   </Tabs>
                 )}
