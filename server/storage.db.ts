@@ -375,118 +375,59 @@ export class DatabaseStorage implements IStorage {
 
   /**
    * Calculate generation levels for family members
-   * Improved algorithm that properly assigns generations based on relationship types
-   * and ensures proper hierarchy for visualization
+   * This helps with visualizing the family tree in a hierarchical layout
+   * Enhanced version that better handles complex family structures
    */
   private calculateGenerations(membersMap: Map<number, any>): void {
-    // Initialize generation counter for tracking assigned generations
-    const generations = new Map<number, number>();
-    
-    // Step 1: Identify the oldest ancestors (those with no parents)
-    const oldestAncestors = Array.from(membersMap.values()).filter(
+    // Find root members (those without parents)
+    const rootMembers = Array.from(membersMap.values()).filter(
       (member) => member.parents.length === 0,
     );
-    
-    console.log(`Found ${oldestAncestors.length} potential root members without parents`);
 
-    // Step 2: If we have too many root members, try to consolidate
-    // by looking for the oldest members by birth date if available
-    let rootMembers = oldestAncestors;
-    
-    if (rootMembers.length > 3) {
-      const membersWithBirthDate = rootMembers.filter(member => member.birth_date);
-      
-      if (membersWithBirthDate.length > 0) {
-        // Sort by birth date to find oldest members
-        membersWithBirthDate.sort((a, b) => {
-          const dateA = new Date(a.birth_date);
-          const dateB = new Date(b.birth_date);
-          return dateA.getTime() - dateB.getTime();
-        });
-        
-        // Select the oldest 1-2 members as our true roots
-        rootMembers = membersWithBirthDate.slice(0, 2);
-        console.log(`Selected ${rootMembers.length} oldest members as true roots based on birth dates`);
-      }
-    }
+    // Initialize generation counter
+    const generations = new Map<number, number>();
 
-    // If we still don't have a good root set, find members with the most children
-    if (rootMembers.length === 0 || (rootMembers.length > 4 && oldestAncestors.length > 4)) {
-      const membersByChildCount = Array.from(membersMap.values())
-        .sort((a, b) => (b.childrenCount || 0) - (a.childrenCount || 0));
-      
-      // Use the member with most children as root if they have 2+ children
-      if (membersByChildCount.length > 0 && membersByChildCount[0].childrenCount >= 2) {
-        rootMembers = [membersByChildCount[0]];
-        console.log(`Selected member with most children (${membersByChildCount[0].name}) as root`);
-      }
-    }
-
-    // If we still don't have any root members, just pick the first member
-    if (rootMembers.length === 0) {
-      rootMembers = [Array.from(membersMap.values())[0]];
-      console.log(`No clear root found, using first member (${rootMembers[0].name}) as root`);
-    }
-
-    // Step 3: Assign generation 0 to root members
+    // Assign generation 0 to root members
     rootMembers.forEach((root) => {
       assignGeneration(root.id, 0);
     });
 
-    // Step 4: Recursively assign generations to all family members
+    // Recursively assign generations to descendants
     function assignGeneration(memberId: number, generation: number) {
-      // Skip if already processed with a lower (more ancestral) generation number
-      if (generations.has(memberId) && generations.get(memberId)! <= generation) {
+      // Skip if already processed with a lower generation number
+      if (
+        generations.has(memberId) &&
+        generations.get(memberId)! <= generation
+      ) {
         return;
       }
 
-      // Set generation on both maps
+      // Set generation
       generations.set(memberId, generation);
       const member = membersMap.get(memberId);
       if (!member) return;
 
-      // Update member object with generation info
+      // Set generation on the member object
       member.generation = generation;
-      
-      // Mark this as processed to avoid circular references
-      const processed = new Set<number>();
-      processed.add(memberId);
 
-      // Process children with incremented generation (parent → child relationship)
+      // Process children with incremented generation
       member.children.forEach((child: any) => {
-        if (!processed.has(child.id)) {
-          assignGeneration(child.id, generation + 1);
-          processed.add(child.id);
-        }
+        assignGeneration(child.id, generation + 1);
       });
 
-      // Process spouses with same generation (lateral relationship)
+      // Process spouses with same generation
       member.spouses.forEach((spouse: any) => {
-        if (!processed.has(spouse.id)) {
-          assignGeneration(spouse.id, generation);
-          processed.add(spouse.id);
-        }
+        assignGeneration(spouse.id, generation);
       });
 
-      // Process siblings with same generation (lateral relationship)
+      // Make sure siblings have the same generation
       member.siblings.forEach((sibling: any) => {
-        if (!processed.has(sibling.id)) {
-          assignGeneration(sibling.id, generation);
-          processed.add(sibling.id);
-        }
-      });
-      
-      // Process parents with decremented generation (child → parent relationship)
-      member.parents.forEach((parent: any) => {
-        if (!processed.has(parent.id)) {
-          assignGeneration(parent.id, generation - 1);
-          processed.add(parent.id);
-        }
+        assignGeneration(sibling.id, generation);
       });
     }
 
-    // Step 5: Special handling for specific relationship types 
-    // (father, mother, child) to ensure consistent hierarchy
+    // Special case for parent/child relationships in father/mother format
+    // This serves as a safety check to ensure we handle all relationship types
     const allRelationships = Array.from(membersMap.values()).flatMap(
       (member) => [
         ...member.relationships.immediate,
@@ -495,94 +436,21 @@ export class DatabaseStorage implements IStorage {
       ],
     );
 
+    // Process specific relationship types we know should be generational
     allRelationships.forEach((rel: any) => {
       const relType = rel.relationship_type?.toLowerCase();
-      
-      // Handle directional parent-child relationships
       if (relType === "father" || relType === "mother") {
         // Parent is one generation above child
-        const parentId = rel.id;
-        const childId = rel.relationship_id; 
+        const parentId = rel.id; // The relation target is the parent
+        const childId = rel.relationship_id; // The relation source is the child
 
-        if (generations.has(parentId) && generations.has(childId)) {
-          const parentGeneration = generations.get(parentId)!;
-          const childGeneration = generations.get(childId)!;
-          
-          // Ensure parent is at least one generation above child
-          if (parentGeneration >= childGeneration) {
-            // Reset child generation to be one below parent
-            assignGeneration(childId, parentGeneration + 1);
-          }
-        } else if (generations.has(parentId)) {
+        if (generations.has(parentId)) {
           const parentGeneration = generations.get(parentId)!;
           assignGeneration(childId, parentGeneration + 1);
         } else if (generations.has(childId)) {
           const childGeneration = generations.get(childId)!;
           assignGeneration(parentId, childGeneration - 1);
         }
-      } else if (relType === "child") {
-        // Child is one generation below parent
-        const childId = rel.id;
-        const parentId = rel.relationship_id;
-        
-        if (generations.has(parentId) && generations.has(childId)) {
-          const parentGeneration = generations.get(parentId)!;
-          const childGeneration = generations.get(childId)!;
-          
-          // Ensure child is at least one generation below parent
-          if (childGeneration <= parentGeneration) {
-            // Reset child generation to be one below parent
-            assignGeneration(childId, parentGeneration + 1);
-          }
-        } else if (generations.has(parentId)) {
-          const parentGeneration = generations.get(parentId)!;
-          assignGeneration(childId, parentGeneration + 1);
-        } else if (generations.has(childId)) {
-          const childGeneration = generations.get(childId)!;
-          assignGeneration(parentId, childGeneration - 1);
-        }
-      }
-    });
-
-    // Step 6: Final validation pass - ensure spouses are on same level
-    // and adjust any inconsistencies
-    Array.from(membersMap.values()).forEach(member => {
-      if (member.spouses.length > 0) {
-        const memberGeneration = generations.get(member.id)!;
-        
-        member.spouses.forEach((spouse: any) => {
-          const spouseGeneration = generations.get(spouse.id);
-          if (spouseGeneration !== undefined && spouseGeneration !== memberGeneration) {
-            // Make sure spouses are on the same level
-            assignGeneration(spouse.id, memberGeneration);
-            
-            // After adjusting the spouse, we need to check their children
-            const spouseMember = membersMap.get(spouse.id);
-            if (spouseMember && spouseMember.children.length > 0) {
-              spouseMember.children.forEach((child: any) => {
-                // Make sure children are one generation below
-                if (generations.has(child.id)) {
-                  const childGeneration = generations.get(child.id)!;
-                  if (childGeneration <= memberGeneration) {
-                    assignGeneration(child.id, memberGeneration + 1);
-                  }
-                }
-              });
-            }
-          }
-        });
-      }
-    });
-
-    // Add parent attribute for hierarchy tree building in the frontend
-    Array.from(membersMap.values()).forEach(member => {
-      // Set parent property for use in d3 hierarchy generation
-      if (member.parents.length > 0) {
-        // Use the first parent as the primary parent for hierarchy
-        const primaryParent = member.parents[0];
-        member.parent = primaryParent.id;
-      } else {
-        member.parent = null;
       }
     });
 

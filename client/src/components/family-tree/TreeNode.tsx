@@ -1,158 +1,288 @@
-import React from "react";
 import { FamilyMember } from "@shared/schema";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
-type RelationshipInfo = {
-  type?: string;
-  relationshipType?: string;
-  relation_category?: string;
-};
+// Interface for hierarchical relationship information
+interface HierarchicalFamilyMember {
+  id: number;
+  name: string;
+  role: string;
+  relationship: string;
+  birth_date: string;
+  location: string;
+  bio: string;
+  personality_traits: string[];
+  interests: string[];
+  occupation: string;
+  avatarUrl: string | null;
+  spouse?: {
+    id: number;
+    name: string;
+    relationship_type: string;
+    relation_category: string;
+  };
+  children: Array<{
+    id: number;
+    name: string;
+    relationship_type: string;
+    relation_category: string;
+  }>;
+  parents: Array<{
+    id: number;
+    name: string;
+    relationship_type: string;
+    relation_category: string;
+  }>;
+  siblings: Array<{
+    id: number;
+    name: string;
+    relationship_type: string;
+    relation_category: string;
+  }>;
+  extended: Array<{
+    id: number;
+    name: string;
+    relationship_type: string;
+    relation_category: string;
+  }>;
+}
 
 interface TreeNodeProps {
   member: FamilyMember;
   x: number;
   y: number;
   size: number;
-  onClick?: () => void;
-  relationInfo?: RelationshipInfo;
+  onClick: () => void;
+  isCurrentUser?: boolean;
+  relationInfo?: HierarchicalFamilyMember;
 }
 
-const TreeNode: React.FC<TreeNodeProps> = ({
-  member,
-  x,
-  y,
-  size,
-  onClick,
-  relationInfo,
-}) => {
-  // Color coding based on relationship type
+const TreeNode = ({ 
+  member, 
+  x, 
+  y, 
+  size, 
+  onClick, 
+  isCurrentUser = false,
+  relationInfo
+}: TreeNodeProps) => {
+  // Always use initials for now since external images are failing
+  const [useInitials, setUseInitials] = useState(true);
+  
+  // Determine color based on relationship type or relation category
   const getNodeColor = () => {
-    if (!relationInfo) return "bg-indigo-500";
-
-    const type = relationInfo.type || "";
-    const category = relationInfo.relation_category || "";
-    
-    if (type.includes("father") || type.includes("mother") || category === "immediate") {
-      return "bg-blue-500"; // Parents
-    } else if (type.includes("son") || type.includes("daughter") || type.includes("child")) {
-      return "bg-green-500"; // Children
-    } else if (type.includes("spouse") || type === "partner") {
-      return "bg-pink-500"; // Spouses
-    } else if (type.includes("sibling")) {
-      return "bg-violet-500"; // Siblings
-    } else if (type.includes("step")) {
-      return "bg-amber-500"; // Step-relations
-    } else if (type.includes("adoptive")) {
-      return "bg-cyan-500"; // Adoptive relations
-    } else if (category === "extended") {
-      return "bg-orange-400"; // Extended family
+    // If we have hierarchical relation info, use that for more accurate colors
+    if (relationInfo) {
+      // Use relation_category as priority
+      const relationCategory = relationInfo.spouse?.relation_category || 
+                              (relationInfo.children.length > 0 ? relationInfo.children[0].relation_category : null) ||
+                              (relationInfo.parents.length > 0 ? relationInfo.parents[0].relation_category : null);
+      
+      switch (relationCategory) {
+        case "immediate":
+          return "#5AAE61"; // Green for immediate family
+        case "adoptive":
+          return "#9B7EDE"; // Purple for adoptive relations
+        case "step":
+          return "#F2994A"; // Orange for step relations
+        case "half":
+          return "#5EAAA8"; // Teal for half relations
+        case "extended":
+          return "#4A6FA5"; // Blue for extended family
+        default:
+          // Fallback to relationship type
+          return getColorFromRelationshipType(member.relationship);
+      }
+    } else {
+      // Fallback to old logic
+      return getColorFromRelationshipType(member.relationship);
     }
-    
-    // Default color for other relationships
-    return "bg-slate-500";
-  };
-
-  // Determine whether to show a special indicator
-  const showSpecialIndicator = () => {
-    if (!relationInfo || !relationInfo.relationshipType) return false;
-    
-    const relType = relationInfo.relationshipType.toLowerCase();
-    return relType.includes("step") || 
-           relType.includes("adopt") || 
-           relType.includes("half") ||
-           relType === "guardian";
   };
   
-  const getBorderStyle = () => {
-    if (!relationInfo || !relationInfo.relationshipType) return "border-transparent";
-    
-    const relType = relationInfo.relationshipType.toLowerCase();
-    
-    if (relType.includes("step")) {
-      return "border-amber-500 border-dashed";
-    } else if (relType.includes("adopt")) {
-      return "border-cyan-500 border-dotted";
-    } else if (relType.includes("half")) {
-      return "border-violet-500 border-dashed";
-    } else if (relType === "guardian") {
-      return "border-indigo-500 border-2";
+  // Helper function to get color from relationship type
+  const getColorFromRelationshipType = (relationshipType: string) => {
+    switch (relationshipType) {
+      case "biological":
+        return "#5AAE61"; // Green
+      case "adoptive":
+        return "#9B7EDE"; // Purple
+      case "step":
+        return "#F2994A"; // Orange
+      case "extended":
+        return "#4A6FA5"; // Blue
+      default:
+        return "#4A6FA5"; // Default blue
     }
-    
-    return "border-transparent";
+  };
+
+  // Generate initials for fallback
+  const getInitials = () => {
+    if (!member.name) return "?";
+    return member.name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
+  // Get avatar background color (based on name hash)
+  const getAvatarBackgroundColor = () => {
+    // Simple logic to determine background color
+    const hash = member.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const colors = [
+      "#4A6FA5", // Blue
+      "#E6704B", // Orange-red
+      "#5AAE61", // Green
+      "#9B7EDE", // Purple
+      "#F2994A", // Orange
+      "#4ECDC4", // Teal
+      "#FF6B6B", // Red
+      "#A364FF", // Lavender
+      "#40C9A2"  // Mint
+    ];
+    return colors[hash % colors.length];
   };
 
   const nodeColor = getNodeColor();
-  const borderStyle = getBorderStyle();
-  const hasSpecialIndicator = showSpecialIndicator();
-  
-  // Ensure we have a safe name value
-  const name = member?.name || "Unknown";
-  const initials = getInitials(name);
-  
-  // Default avatar if not provided
-  const avatarUrl = member?.avatarUrl || null;
+  const avatarColor = getAvatarBackgroundColor();
+
+  // Add a highlight animation for the current user
+  const pulseAnimation = isCurrentUser ? {
+    animation: "pulse 2s infinite"
+  } : {};
+
+  // Add a highlight for nodes with spouse relationships
+  const hasSpouse = relationInfo && relationInfo.spouse;
+  const hasChildren = relationInfo && relationInfo.children.length > 0;
+  const isParent = relationInfo && relationInfo.parents.length > 0;
+
+  // Display roles with some additional context
+  const getDisplayRole = () => {
+    if (!relationInfo) return member.role;
+    
+    // Enhance role with relation details
+    if (hasSpouse && relationInfo.role) {
+      return relationInfo.role;
+    }
+    
+    // Add context based on relationships
+    if (hasChildren && isParent) {
+      return `${member.role} (Parent)`;
+    } else if (hasChildren) {
+      return `${member.role} (Parent)`;
+    } else if (isParent) {
+      return `${member.role} (Child)`;
+    }
+    
+    return member.role;
+  };
 
   return (
-    <g
-      className="family-tree-node"
-      transform={`translate(${x - size / 2}, ${y - size / 2})`}
+    <g 
+      className="tree-node cursor-pointer"
+      transform={`translate(${x}, ${y})`}
       onClick={onClick}
-      style={{ cursor: onClick ? "pointer" : "default" }}
     >
-      {/* Node circle background with pulse animation */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={size / 2 + 10}
-        className="fill-transparent peer"
+      {/* Background circle for node */}
+      <circle 
+        r={size} 
+        fill={nodeColor}
+        strokeWidth={isCurrentUser ? 3 : (hasSpouse ? 2 : 0)}
+        stroke={isCurrentUser ? "#FFF" : (hasSpouse ? "#FFF" : "none")}
+        style={pulseAnimation}
       />
       
-      {/* Main node circle */}
-      <foreignObject x={0} y={0} width={size} height={size}>
-        <div className="h-full w-full flex items-center justify-center">
-          <Avatar className={`h-full w-full rounded-full hover:ring-2 hover:ring-primary border-2 ${borderStyle}`}>
-            {avatarUrl ? (
-              <AvatarImage src={avatarUrl} alt={name} />
-            ) : (
-              <AvatarFallback className={`text-white text-sm font-medium ${nodeColor}`}>
-                {initials}
-              </AvatarFallback>
-            )}
-          </Avatar>
-        </div>
-      </foreignObject>
+      {/* Circle inside for avatar/initials */}
+      <circle 
+        r={size * 0.85} 
+        fill={avatarColor}
+      />
       
-      {/* Special indicator for step/adoptive/etc. relationships */}
-      {hasSpecialIndicator && (
-        <circle
-          cx={size - 2}
-          cy={4}
-          r={4}
-          className="fill-amber-500 stroke-white stroke-1"
-        />
-      )}
-      
-      {/* Name label */}
+      {/* Initials */}
       <text
-        x={size / 2}
-        y={size + 15}
+        x="0"
+        y="5"
         textAnchor="middle"
-        className="fill-current text-foreground text-xs font-medium"
+        dominantBaseline="middle"
+        className="font-bold fill-white"
+        fontSize={size * 0.65}
       >
-        {name}
+        {getInitials()}
       </text>
       
-      {/* Role label (smaller and lighter below the name) */}
-      {member.role && (
-        <text
-          x={size / 2}
-          y={size + 30}
-          textAnchor="middle"
-          className="fill-muted-foreground text-[10px]"
-        >
-          {member.role}
-        </text>
+      {/* White background for name text (better contrast) */}
+      <rect
+        x={-size * 1.5}
+        y={size + 5}
+        width={size * 3}
+        height={20}
+        rx={4}
+        fill="white"
+        fillOpacity="0.85"
+        className="dark:fill-neutral-900 dark:fill-opacity-85"
+      />
+      
+      {/* Name text */}
+      <text 
+        x="0" 
+        y={size + 15} 
+        textAnchor="middle" 
+        className="font-medium fill-neutral-900 dark:fill-white"
+      >
+        {member.name}
+      </text>
+      
+      {/* Role text */}
+      <text 
+        x="0" 
+        y={size + 30} 
+        textAnchor="middle" 
+        className="text-xs fill-primary dark:fill-primary"
+      >
+        {getDisplayRole()}
+      </text>
+
+      {/* Indicators for number of relationships */}
+      {relationInfo && (
+        <g>
+          {/* Child count indicator */}
+          {relationInfo.children.length > 0 && (
+            <circle
+              r={size * 0.3}
+              cy={size * 1.2}
+              cx={size * 0.8}
+              fill="#5AAE61"
+              className="opacity-70"
+            >
+              <title>{relationInfo.children.length} children</title>
+            </circle>
+          )}
+          
+          {/* Sibling count indicator */}
+          {relationInfo.siblings.length > 0 && (
+            <circle
+              r={size * 0.3}
+              cy={size * 1.2}
+              cx={-size * 0.8}
+              fill="#4A6FA5"
+              className="opacity-70"
+            >
+              <title>{relationInfo.siblings.length} siblings</title>
+            </circle>
+          )}
+        </g>
+      )}
+
+      {/* Pulsing animation for current user */}
+      {isCurrentUser && (
+        <circle
+          r={size + 5}
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2"
+          opacity="0.5"
+          className="animate-ping"
+        />
       )}
     </g>
   );

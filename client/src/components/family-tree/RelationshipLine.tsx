@@ -1,135 +1,137 @@
-import React from "react";
-
-export type LineStyle = "straight" | "horizontal" | "vertical" | "curved" | "dashed";
-
 interface RelationshipLineProps {
   x1: number;
   y1: number;
   x2: number;
   y2: number;
   type: string;
-  lineStyle: LineStyle;
+  lineStyle?: "straight" | "horizontal" | "vertical" | "curved" | "dashed";
 }
 
-/**
- * RelationshipLine component renders a SVG line that connects family members
- * based on their relationship type.
- */
-const RelationshipLine: React.FC<RelationshipLineProps> = ({
-  x1,
-  y1,
-  x2,
-  y2,
-  type,
-  lineStyle,
-}) => {
-  // Determine stroke style based on relationship type
-  const getStrokeStyle = () => {
-    if (type.includes("step") || lineStyle === "dashed") {
-      return "2,2";
-    } else if (type.includes("adoptive")) {
-      return "5,2";
-    } else {
-      return "";
-    }
+const RelationshipLine = ({ x1, y1, x2, y2, type, lineStyle = "straight" }: RelationshipLineProps) => {
+  // Get stroke properties based on relationship type
+  const getStrokeProperties = () => {
+    // Map relationship types to visual properties
+    const typeStyles: Record<string, { color: string, dashArray: string, width: number }> = {
+      // Immediate family relationships
+      "biological": { color: "#5AAE61", dashArray: "none", width: 3 },
+      "spouse": { color: "#4A6FA5", dashArray: "none", width: 3 },
+      "child": { color: "#5AAE61", dashArray: "none", width: 3 },
+      "parent": { color: "#5AAE61", dashArray: "none", width: 3 },
+      "sibling": { color: "#5AAE61", dashArray: "none", width: 3 },
+      
+      // Extended family relationships
+      "grandparent": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      "grandchild": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      "aunt": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      "uncle": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      "niece": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      "nephew": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      "cousin": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      
+      // Adoptive relationships
+      "adoptive-parent": { color: "#9B7EDE", dashArray: "5,5", width: 3 },
+      "adoptive-child": { color: "#9B7EDE", dashArray: "5,5", width: 3 },
+      
+      // Step relationships
+      "step-parent": { color: "#F2994A", dashArray: "10,5", width: 3 },
+      "step-child": { color: "#F2994A", dashArray: "10,5", width: 3 },
+      "step-sibling": { color: "#F2994A", dashArray: "10,5", width: 3 },
+      
+      // Generic categories
+      "adoptive": { color: "#9B7EDE", dashArray: "5,5", width: 3 },
+      "step": { color: "#F2994A", dashArray: "10,5", width: 3 },
+      "extended": { color: "#4A6FA5", dashArray: "5,3", width: 2.5 },
+      
+      // Default
+      "other": { color: "#808080", dashArray: "2,2", width: 2 }
+    };
+    
+    return typeStyles[type] || typeStyles["other"];
   };
 
-  // Get relationship color based on type
-  const getLineColor = () => {
-    if (type.includes("spouse") || type === "partner") {
-      return "#3b82f6"; // blue-500
-    } else if (type.includes("parent") || type.includes("child")) {
-      return "#10b981"; // emerald-500
-    } else if (type.includes("sibling")) {
-      return "#8b5cf6"; // violet-500
-    } else if (type.includes("extended") || type.includes("grandparent") || type.includes("grandchild")) {
-      return "#f97316"; // orange-500
-    } else {
-      return "#64748b"; // slate-500 (default)
-    }
-  };
-
-  // Calculate line path based on line style
-  const getLinePath = () => {
-    if (lineStyle === "straight") {
-      return `M${x1},${y1} L${x2},${y2}`;
-    } else if (lineStyle === "horizontal") {
-      // Horizontal connection (e.g., spouses)
-      return `M${x1},${y1} L${x2},${y2}`;
-    } else if (lineStyle === "vertical") {
-      // Vertical connection with horizontal segment (e.g., parent-child)
-      const midY = (y1 + y2) / 2;
-      return `M${x1},${y1} L${x1},${midY} L${x2},${midY} L${x2},${y2}`;
-    } else if (lineStyle === "curved") {
-      // Curved connection (e.g., siblings)
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const midX = (x1 + x2) / 2;
-      const midY = (y1 + y2) / 2;
-      const curveSize = Math.min(Math.abs(dx), Math.abs(dy)) * 0.5;
-      
-      // Adjust control point to curve away from straight line
-      const cpX = midX;
-      const cpY = midY - curveSize;
-      
-      return `M${x1},${y1} Q${cpX},${cpY} ${x2},${y2}`;
+  const strokeProps = getStrokeProperties();
+  
+  // Create path for curved lines or custom line styles
+  const getPath = () => {
+    // For horizontal lines (like spouse relationships)
+    if (lineStyle === "horizontal") {
+      // Enhanced horizontal line with slight curve for visual appeal
+      const midY = (y1 + y2) / 2 - 5; // Slight curve upward
+      return `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${midY}, ${x2} ${y2}`;
     }
     
-    // Default to straight line
-    return `M${x1},${y1} L${x2},${y2}`;
-  };
-
-  // Calculate the position for optional relationship labels
-  const getLabelPosition = () => {
+    // For vertical/hierarchical lines (parent-child relationships)
+    if (lineStyle === "vertical") {
+      // Determine if this is a downward connection (parent -> child)
+      const isDownward = y2 > y1;
+      
+      if (isDownward) {
+        // Parent to child: First go down, then horizontally
+        const midY = y1 + (y2 - y1) * 0.6; // Go down 60% of the way
+        return `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+      } else {
+        // Child to parent or other vertical relationship
+        const midY = y2 + (y1 - y2) * 0.6; // Go up 60% of the way
+        return `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+      }
+    }
+    
+    // For curved lines (sibling relationships)
+    if (lineStyle === "curved") {
+      // Enhanced Bezier curve for sibling relationships
+      const dx = Math.abs(x2 - x1);
+      const dy = Math.abs(y2 - y1);
+      
+      if (dy < 10) { // If on same level, use a simple arc
+        const midY = (y1 + y2) / 2 - Math.min(dx / 4, 30); // Arc height based on distance
+        return `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${midY}, ${x2} ${y2}`;
+      } else {
+        // For siblings at different levels, use S-curve
+        const controlX1 = x1 + (x2 - x1) * 0.2;
+        const controlY1 = y1 + (y2 - y1) * 0.4;
+        const controlX2 = x1 + (x2 - x1) * 0.8;
+        const controlY2 = y1 + (y2 - y1) * 0.6;
+        return `M ${x1} ${y1} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${x2} ${y2}`;
+      }
+    }
+    
+    // For dashed lines (extended family relationships)
+    if (lineStyle === "dashed") {
+      // Simple direct line for extended family
+      return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
+    
+    // Default case: straight line with slight curve for visual interest
     const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
-    return { x: midX, y: midY };
+    const midY = (y1 + y2) / 2 - 5;
+    return `M ${x1} ${y1} Q ${midX} ${midY}, ${x2} ${y2}`;
   };
 
-  const labelPosition = getLabelPosition();
-  const linePath = getLinePath();
-  const strokeDasharray = getStrokeStyle();
-  const strokeColor = getLineColor();
-
+  // Use path for all relationship lines to support different styles
   return (
-    <g className="relationship-line">
-      {/* The actual connection line */}
-      <path
-        d={linePath}
-        fill="none"
-        stroke={strokeColor}
-        strokeWidth={1.5}
-        strokeDasharray={strokeDasharray}
+    <>
+      {/* Background line (shadow effect) */}
+      <path 
+        d={getPath()}
+        className="relationship-line-bg" 
+        stroke="#ffffff"
+        strokeWidth={strokeProps.width + 2}
         strokeLinecap="round"
-        opacity={0.8}
+        strokeOpacity={0.6}
+        fill="none"
       />
       
-      {/* Optional visual marker for the relationship */}
-      {type === "spouse" && (
-        <circle
-          cx={labelPosition.x}
-          cy={labelPosition.y}
-          r={3}
-          fill={strokeColor}
-          opacity={0.8}
-        />
-      )}
-      
-      {/* Optional tooltip/label if we want to show relationship type on hover */}
-      {false && (
-        <text
-          x={labelPosition.x}
-          y={labelPosition.y - 5}
-          textAnchor="middle"
-          fontSize={10}
-          fill="currentColor"
-          opacity={0.8}
-          className="relationship-label"
-        >
-          {type}
-        </text>
-      )}
-    </g>
+      {/* Colored relationship line */}
+      <path 
+        d={getPath()}
+        className="relationship-line" 
+        stroke={strokeProps.color}
+        strokeWidth={strokeProps.width}
+        strokeLinecap="round"
+        strokeDasharray={strokeProps.dashArray}
+        fill="none"
+      />
+    </>
   );
 };
 
