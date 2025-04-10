@@ -148,9 +148,10 @@ export const aiService = {
     } catch (error: any) {
       console.error("Error generating member narrative:", error);
       
-      // If we hit a rate limit or quota error, use mock data instead
-      if (error.status === 429 || (error.code && error.code === 'insufficient_quota')) {
-        console.log("Using fallback narrative due to API rate limit or quota error");
+      // If we hit a rate limit, quota error, or authentication error (invalid API key), use fallback data
+      if (error.status === 429 || error.status === 401 || 
+          (error.code && (error.code === 'insufficient_quota' || error.code === 'invalid_api_key'))) {
+        console.log("Using fallback narrative due to API error:", error.status || error.code);
         return {
           narrative: `# ${member.name}'s Family Story
 
@@ -343,9 +344,10 @@ They maintain meaningful relationships with several family members, particularly
     } catch (error: any) {
       console.error("Error analyzing relationships:", error);
       
-      // If we hit a rate limit or quota error, use mock data instead
-      if (error.status === 429 || (error.code && error.code === 'insufficient_quota')) {
-        console.log("Using fallback relationship analysis due to API rate limit or quota error");
+      // If we hit a rate limit, quota error, or authentication error (invalid API key), use fallback data
+      if (error.status === 429 || error.status === 401 || 
+          (error.code && (error.code === 'insufficient_quota' || error.code === 'invalid_api_key'))) {
+        console.log("Using fallback relationship analysis due to API error:", error.status || error.code);
         
         // Count generations by analyzing birth years
         const birthYears = familyMembers
