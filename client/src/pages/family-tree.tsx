@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useFamilyTree } from "../hooks/useFamilyTree";
-import { buildFamilyTree } from "../lib/treeUtils";
+import { buildFamilyTree, TreeMember } from "../lib/treeUtils";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
 import {
@@ -17,7 +17,7 @@ import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 const FamilyTreePage: React.FC = () => {
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(
+  const [selectedMember, setSelectedMember] = useState<TreeMember | null>(
     null,
   );
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -66,7 +66,7 @@ const FamilyTreePage: React.FC = () => {
     setZoomLevel(scale);
   }, []);
 
-  const handleMemberClick = useCallback((member: FamilyMember) => {
+  const handleMemberClick = useCallback((member: TreeMember) => {
     setSelectedMember(member);
   }, []);
 

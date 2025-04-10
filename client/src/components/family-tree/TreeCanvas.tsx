@@ -33,8 +33,13 @@ interface PositionedNode extends FamilyMember {
   y: number;
   children?: PositionedNode[];
   _children?: PositionedNode[];
-  parent?: PositionedNode;
-  spouse?: PositionedNode;
+  parents?: any[]; // From API
+  siblings?: any[]; // From API
+  spouses?: any[]; // From API
+  extended?: any[]; // From API
+  generation?: number; // Generation level from API
+  parent?: PositionedNode; // For d3 hierarchy
+  spouse?: PositionedNode; // For rendering relationships
   relationshipType?: string;
   _uniqueKey?: string; // Unique key for React rendering
 }

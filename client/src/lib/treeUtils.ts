@@ -1,36 +1,43 @@
 import { FamilyMember } from "@shared/schema";
 
-export function buildFamilyTree(flatData: any[]): any[] {
-  const map = new Map();
-  const roots: any[] = [];
+// Extended FamilyMember type for tree visualization
+export interface TreeMember extends FamilyMember {
+  // Relationship arrays from the hierarchical API
+  spouses?: any[];
+  children?: any[];
+  parents?: any[];
+  siblings?: any[];
+  extended?: any[];
+  
+  // Stats
+  childrenCount?: number;
+  siblingsCount?: number;
+  extendedCount?: number;
+  
+  // Position information
+  generation?: number;
+  x?: number;
+  y?: number;
+}
 
-  // First: create a map of all members and initialize children arrays
-  flatData.forEach((member: any) => {
-    member.children = [];
-    map.set(member.id, member);
+export function buildFamilyTree(hierarchicalData: any[]): any[] {
+  // We don't need to convert the hierarchical data anymore
+  // because the API is already returning a properly structured hierarchical tree
+  // with spouses, children, parents, and siblings arrays
+  
+  // Just identify which nodes are roots (no parents or only have spouses)
+  const roots: any[] = hierarchicalData.filter((member: any) => {
+    return !member.parents || member.parents.length === 0;
   });
-
-  // Second: assign children to their parents
-  flatData.forEach((member: any) => {
-    console.log(
-      `🧩 ID: ${member.id} | Name: ${member.name} | Parent ID: ${member.parent}`,
-    );
-
-    if (member.parent !== null && map.has(member.parent)) {
-      const parent = map.get(member.parent);
-      parent.children.push(member);
-    } else {
-      console.warn(
-        "👀 Root or unmatched parent:",
-        member.name,
-        "→ parent:",
-        member.parent,
-      );
-      roots.push(member);
-    }
-  });
-
-  console.log("🌳 Final nested tree roots:", JSON.stringify(roots, null, 2));
+  
+  console.log(`🌳 Identified ${roots.length} root members in the family tree`);
+  
+  // If we have no roots but have members, consider all members as roots
+  if (roots.length === 0 && hierarchicalData.length > 0) {
+    console.warn("⚠️ No root members found, using all members as roots");
+    return hierarchicalData;
+  }
+  
   return roots;
 }
 
