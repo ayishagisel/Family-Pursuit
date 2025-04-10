@@ -33,6 +33,24 @@ function logOperation(operation: string, entity: string, data?: any): void {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    logOperation("READ", "user", { id });
+    const results = await db.select().from(users).where(eq(users.id, id));
+    return results[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    logOperation("READ", "user_by_username", { username });
+    const results = await db.select().from(users).where(eq(users.username, username));
+    return results[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    logOperation("CREATE", "user", { ...user, password: "***" });
+    const results = await db.insert(users).values(user).returning();
+    return results[0];
+  }
   // Event methods
   async getEvent(id: number): Promise<Event | undefined> {
     logOperation("READ", "event", { id });
@@ -258,11 +276,74 @@ export class DatabaseStorage implements IStorage {
     logOperation("READ", "family_members", { count: members.length });
     return members;
   }
+  
+  async createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember> {
+    logOperation("CREATE", "family_member", member);
+    const results = await db.insert(familyMembers).values(member).returning();
+    return results[0];
+  }
+  
+  async updateFamilyMember(id: number, member: Partial<InsertFamilyMember>): Promise<FamilyMember | undefined> {
+    logOperation("UPDATE", "family_member", { id, ...member });
+    const results = await db
+      .update(familyMembers)
+      .set(member)
+      .where(eq(familyMembers.id, id))
+      .returning();
+    return results[0];
+  }
+  
+  async deleteFamilyMember(id: number): Promise<boolean> {
+    logOperation("DELETE", "family_member", { id });
+    const results = await db.delete(familyMembers).where(eq(familyMembers.id, id)).returning();
+    return results.length > 0;
+  }
 
   async getAllRelationships(): Promise<Relationship[]> {
     const allRelationships = await db.select().from(relationships);
     logOperation("READ", "relationships", { count: allRelationships.length });
     return allRelationships;
+  }
+  
+  async getRelationship(id: number): Promise<Relationship | undefined> {
+    logOperation("READ", "relationship", { id });
+    const results = await db.select().from(relationships).where(eq(relationships.id, id));
+    return results[0];
+  }
+  
+  async getRelationshipsByMember(memberId: number): Promise<Relationship[]> {
+    logOperation("READ", "relationships_by_member", { memberId });
+    return await db
+      .select()
+      .from(relationships)
+      .where(
+        or(
+          eq(relationships.source_id, memberId),
+          eq(relationships.target_id, memberId)
+        )
+      );
+  }
+  
+  async createRelationship(relationship: InsertRelationship): Promise<Relationship> {
+    logOperation("CREATE", "relationship", relationship);
+    const results = await db.insert(relationships).values(relationship).returning();
+    return results[0];
+  }
+
+  async updateRelationship(id: number, relationship: Partial<InsertRelationship>): Promise<Relationship | undefined> {
+    logOperation("UPDATE", "relationship", { id, ...relationship });
+    const results = await db
+      .update(relationships)
+      .set(relationship)
+      .where(eq(relationships.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteRelationship(id: number): Promise<boolean> {
+    logOperation("DELETE", "relationship", { id });
+    const results = await db.delete(relationships).where(eq(relationships.id, id)).returning();
+    return results.length > 0;
   }
 
   /**
@@ -512,7 +593,7 @@ export class DatabaseStorage implements IStorage {
     logOperation("UPDATE", "message_read", { id });
     const results = await db
       .update(messages)
-      .set({ read: true })
+      .set({ isRead: true })
       .where(eq(messages.id, id))
       .returning();
     return results[0];
