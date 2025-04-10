@@ -9,6 +9,7 @@ import {
   insertDocumentSchema,
   insertHelpRequestSchema,
   insertMessageSchema,
+  insertHousingIssueSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { format } from "date-fns";
