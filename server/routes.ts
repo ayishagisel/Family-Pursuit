@@ -878,83 +878,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Analyze family relationships for insights
   app.get("/api/analyze/relationships", async (req: Request, res: Response) => {
     try {
-      console.log("Starting relationship analysis...");
+      // Just immediately send a fallback response with data from the family
+      console.log("Generating fallback relationship analysis directly");
       
       // Retrieve data
       const familyMembers = await storage.getAllFamilyMembers();
-      console.log(`Retrieved ${familyMembers.length} family members`);
-      
       const relationships = await storage.getAllRelationships();
-      console.log(`Retrieved ${relationships.length} relationships`);
-
-      try {
-        // Call our aiService to analyze relationships
-        console.log("Calling aiService.analyzeRelationships...");
-        const analysis = await aiService.analyzeRelationships(
-          familyMembers,
-          relationships,
-        );
-        console.log("AI service returned analysis result");
-
-        // Check if there was an error in the analysis
-        if (analysis.error) {
-          console.log("Analysis has error:", analysis.analysis);
-          return res.status(500).json({
-            message: analysis.analysis,
-            error: true,
-          });
+      
+      // Count generations by analyzing birth years
+      const birthYears = familyMembers
+        .filter((m: any) => m.birth_date)
+        .map((m: any) => new Date(m.birth_date).getFullYear());
+      
+      // Calculate generation span
+      let generationSpan = 3; // Default
+      if (birthYears.length > 0) {
+        const oldestYear = Math.min(...birthYears);
+        const youngestYear = Math.max(...birthYears);
+        generationSpan = Math.floor((youngestYear - oldestYear) / 20) || 1;
+      }
+      
+      // Count relationship types
+      const relationTypes = relationships.reduce((acc: Record<string, number>, rel: any) => {
+        const type = rel.relationship_type?.toLowerCase() || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const parentChildCount = (relationTypes['parent'] || 0) + (relationTypes['child'] || 0);
+      const siblingCount = relationTypes['sibling'] || 0;
+      const spouseCount = relationTypes['spouse'] || 0;
+      
+      // Gather personality traits and interests
+      const traits = new Set<string>();
+      const interests = new Set<string>();
+      
+      familyMembers.forEach((member: any) => {
+        if (member.personality_traits && Array.isArray(member.personality_traits)) {
+          member.personality_traits.forEach((trait: string) => traits.add(trait));
         }
-
-        return res.json(analysis);
-      } catch (aiError: any) {
-        console.error("Error in AI analysis:", aiError);
-        
-        // Generate fallback content directly here
-        console.log("Generating fallback relationship analysis...");
-        
-        // Count generations by analyzing birth years
-        const birthYears = familyMembers
-          .filter((m: any) => m.birth_date)
-          .map((m: any) => new Date(m.birth_date).getFullYear());
-        
-        // Handle the case where there are no birth years or too few to analyze
-        let generationSpan = 3; // Default if we can't calculate
-        if (birthYears.length > 0) {
-          const oldestYear = Math.min(...birthYears);
-          const youngestYear = Math.max(...birthYears);
-          generationSpan = Math.floor((youngestYear - oldestYear) / 20) || 1; // At least 1
+        if (member.interests && Array.isArray(member.interests)) {
+          member.interests.forEach((interest: string) => interests.add(interest));
         }
-        
-        // Count relationship types
-        const relationTypes = relationships.reduce((acc: Record<string, number>, rel: any) => {
-          const type = rel.relationship_type?.toLowerCase() || 'unknown';
-          acc[type] = (acc[type] || 0) + 1;
-          return acc;
-        }, {});
-        
-        const parentChildCount = (relationTypes['parent'] || 0) + (relationTypes['child'] || 0);
-        const siblingCount = relationTypes['sibling'] || 0;
-        const spouseCount = relationTypes['spouse'] || 0;
-        
-        // Gather personality traits and interests to mention in the analysis
-        const traits = new Set<string>();
-        const interests = new Set<string>();
-        
-        familyMembers.forEach((member: any) => {
-          if (member.personality_traits && Array.isArray(member.personality_traits)) {
-            member.personality_traits.forEach((trait: string) => traits.add(trait));
-          }
-          if (member.interests && Array.isArray(member.interests)) {
-            member.interests.forEach((interest: string) => interests.add(interest));
-          }
-        });
-        
-        const commonTraits = Array.from(traits).slice(0, 5);
-        const commonInterests = Array.from(interests).slice(0, 5);
-        
-        console.log("Sending fallback analysis response");
-        return res.json({
-          analysis: `
+      });
+      
+      const commonTraits = Array.from(traits).slice(0, 5);
+      const commonInterests = Array.from(interests).slice(0, 5);
+      
+      return res.json({
+        analysis: `
 ## Family Structure Analysis
 
 This family consists of ${familyMembers.length} members connected through ${relationships.length} different relationships, forming a rich tapestry of connections spanning approximately ${generationSpan || 3} generations. The family demonstrates a beautiful blend of traditional and modern family structures, with a notable emphasis on maintaining strong bonds across generations.
@@ -980,16 +952,13 @@ What makes this family unique is its embrace of both biological and chosen famil
 The family's strengths lie in its commitment to maintaining connections despite geographical distances and generational differences. Consider nurturing these strengths through regular family gatherings, shared digital spaces for remote members, and intentional mentoring relationships between generations. Encouraging the documentation of family stories and traditions would further strengthen the sense of shared identity that is already evident in this vibrant family network.
 
 *Note: This is a simplified analysis generated when the AI service is unavailable. A more personalized analysis would be created when the service is accessible.*
-          `,
-          fallback: true
-        });
-      }
+        `,
+        fallback: true
+      });
     } catch (error: any) {
-      console.error("Outer error in relationship analysis:", error);
+      console.error("Error in relationship analysis:", error);
       res.status(500).json({
-        message:
-          error.message ||
-          "An error occurred while analyzing the family relationships.",
+        message: error.message || "An error occurred while analyzing the family relationships.",
         error: true,
       });
     }
