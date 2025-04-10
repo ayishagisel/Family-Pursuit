@@ -24,6 +24,9 @@ interface TreeCanvasProps {
   visualizationType?: VisualizationType;
 }
 
+// Add d3-hierarchy module declaration to fix TypeScript errors
+declare module 'd3-hierarchy';
+
 // Interface for processed nodes that include position coordinates
 interface PositionedNode extends FamilyMember {
   x: number;
@@ -33,6 +36,7 @@ interface PositionedNode extends FamilyMember {
   parent?: PositionedNode;
   spouse?: PositionedNode;
   relationshipType?: string;
+  _uniqueKey?: string; // Unique key for React rendering
 }
 
 // Interface for relationship lines
@@ -253,17 +257,27 @@ export default TreeCanvas;
 // Helper function to process hierarchical data
 function processHierarchicalData(nodes: any[], visualizationType: VisualizationType) {
   if (!nodes || nodes.length === 0) {
+    console.log("No nodes to process");
     return { positionedNodes: [], relationships: [] };
   }
   
-  // Create a hierarchical structure suitable for d3.hierarchy
-  const hierarchy = createFamilyHierarchy(nodes);
+  console.log("Processing", nodes.length, "nodes with visualization type:", visualizationType);
   
   // Apply the appropriate layout algorithm based on visualization type
   let positionedNodes: PositionedNode[] = [];
   switch (visualizationType) {
     case "hierarchical":
-      positionedNodes = applyHierarchicalLayout(hierarchy);
+      // For hierarchical, use either the generation data from the API or calculate it
+      if (nodes[0]?.generation !== undefined) {
+        // If the API provides generation data, use it directly
+        console.log("Using generation data from API");
+        positionedNodes = applyGenerationBasedLayout(nodes);
+      } else {
+        // Otherwise, calculate hierarchy and apply tree layout
+        console.log("Using calculated hierarchy for tree layout");
+        const hierarchy = createFamilyHierarchy(nodes);
+        positionedNodes = applyHierarchicalLayout(hierarchy);
+      }
       break;
     case "flat":
       positionedNodes = applyFlatLayout(nodes);
@@ -272,12 +286,13 @@ function processHierarchicalData(nodes: any[], visualizationType: VisualizationT
       positionedNodes = applySociogramLayout(nodes);
       break;
     default:
-      positionedNodes = applyHierarchicalLayout(hierarchy);
+      positionedNodes = applyGenerationBasedLayout(nodes);
   }
   
   // Extract relationships from the positioned nodes
   const relationships = extractRelationships(positionedNodes, nodes);
   
+  console.log("Generated", positionedNodes.length, "positioned nodes with", relationships.length, "relationships");
   return { positionedNodes, relationships };
 }
 
@@ -298,7 +313,8 @@ function createFamilyHierarchy(nodes: any[]) {
     nodeMap.set(node.id, { 
       ...node, 
       children: [],
-      hierarchyPosition: {}
+      hierarchyPosition: {},
+      _processed: false
     });
   });
   
@@ -329,17 +345,117 @@ function createFamilyHierarchy(nodes: any[]) {
         }
       }
     }
+    
+    // Process parent relationships
+    if (node.parents && node.parents.length > 0) {
+      const childNode = nodeMap.get(node.id);
+      node.parents.forEach((parentRef: any) => {
+        const parentNode = nodeMap.get(parentRef.id);
+        if (parentNode) {
+          if (!parentNode.children) {
+            parentNode.children = [];
+          }
+          
+          // Avoid duplicate children
+          const alreadyAdded = parentNode.children.some((c: any) => c.id === childNode.id);
+          if (!alreadyAdded) {
+            parentNode.children.push(childNode);
+            childNode.parent = parentNode;
+          }
+        }
+      });
+    }
   });
   
   // Find root nodes (those without parents)
+  const rootNodes: any[] = [];
   nodes.forEach(node => {
     const processedNode = nodeMap.get(node.id);
     if (!processedNode.parent) {
+      rootNodes.push(processedNode);
+      
+      // Add to the artificial root for D3 hierarchy
       rootNode.children.push(processedNode);
     }
   });
   
+  console.log("Created hierarchy with", rootNodes.length, "root nodes");
   return rootNode;
+}
+
+// Layout nodes based on generation info from API
+function applyGenerationBasedLayout(nodes: any[]): PositionedNode[] {
+  // Group nodes by generation
+  const generationGroups = new Map<number, any[]>();
+  const positionedNodes: PositionedNode[] = [];
+  const processedSpouses = new Set<number>();
+  
+  // Group nodes by their generation value
+  nodes.forEach(node => {
+    const generation = node.generation !== undefined ? node.generation : 0;
+    if (!generationGroups.has(generation)) {
+      generationGroups.set(generation, []);
+    }
+    generationGroups.get(generation)?.push(node);
+  });
+  
+  console.log("Grouped nodes into", generationGroups.size, "generations");
+  
+  // Find the min/max generation to normalize
+  const allGenerations = Array.from(generationGroups.keys());
+  const minGeneration = Math.min(...allGenerations);
+  
+  // Calculate positions for each node by generation
+  generationGroups.forEach((generationNodes, generation) => {
+    const normalizedGeneration = generation - minGeneration;
+    const verticalPosition = normalizedGeneration * 160 + 100; // 160px between generations
+    
+    // Position nodes horizontally within their generation
+    const nodeCount = generationNodes.length;
+    generationNodes.forEach((node, index) => {
+      // Skip if this is a spouse that's already been processed
+      if (processedSpouses.has(node.id)) {
+        return;
+      }
+      
+      const horizontalSpacing = Math.max(150, window.innerWidth / (nodeCount + 1));
+      const xPosition = (index + 1) * horizontalSpacing;
+      
+      // Create positioned node
+      const uniqueNodeId = `node-${node.id}`;
+      positionedNodes.push({
+        ...node,
+        x: xPosition,
+        y: verticalPosition,
+        _uniqueKey: uniqueNodeId
+      });
+      
+      // Handle spouse (if any) - place next to this node
+      if (node.spouses && node.spouses.length > 0) {
+        const spouseRef = node.spouses[0];
+        if (spouseRef && !processedSpouses.has(spouseRef.id)) {
+          // Find the spouse node in the original dataset
+          const spouseNode = nodes.find(n => n.id === spouseRef.id);
+          if (spouseNode) {
+            const uniqueSpouseId = `spouse-${spouseNode.id}`;
+            positionedNodes.push({
+              ...spouseNode,
+              x: xPosition + 100, // Position spouse to the right
+              y: verticalPosition, // Same vertical level
+              _uniqueKey: uniqueSpouseId
+            });
+            
+            processedSpouses.add(spouseNode.id);
+            
+            // Also mark the original node as processed in case spouse refers back
+            processedSpouses.add(node.id);
+          }
+        }
+      }
+    });
+  });
+  
+  return positionedNodes;
 }
 
 // Apply hierarchical tree layout using d3-hierarchy
@@ -423,6 +539,7 @@ function applySociogramLayout(nodes: any[]) {
 function extractRelationships(positionedNodes: PositionedNode[], originalNodes: any[]): RelationshipLineData[] {
   const relationships: RelationshipLineData[] = [];
   const nodeMap = new Map<number, PositionedNode>();
+  const processedRelationships = new Set<string>(); // Track processed relationships to avoid duplicates
   
   // Create a map for quick lookup
   positionedNodes.forEach(node => {
@@ -439,27 +556,56 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
       node.spouses.forEach((spouseRef: any) => {
         const targetNode = nodeMap.get(spouseRef.id);
         if (targetNode) {
-          relationships.push({
-            source: sourceNode,
-            target: targetNode,
-            type: "spouse",
-            relationshipType: spouseRef.relationship_type || "spouse"
-          });
+          // Create a unique ID for this relationship to avoid duplicates
+          const relationshipId = `spouse-${Math.min(sourceNode.id, targetNode.id)}-${Math.max(sourceNode.id, targetNode.id)}`;
+          if (!processedRelationships.has(relationshipId)) {
+            relationships.push({
+              source: sourceNode,
+              target: targetNode,
+              type: "spouse",
+              relationshipType: spouseRef.relationship_type || "spouse"
+            });
+            processedRelationships.add(relationshipId);
+          }
         }
       });
     }
     
     // 2. Parent-child relationships (vertical connections)
+    // 2a. Check the 'children' array
     if (node.children && node.children.length > 0) {
       node.children.forEach((childRef: any) => {
         const targetNode = nodeMap.get(childRef.id);
         if (targetNode) {
-          relationships.push({
-            source: sourceNode,
-            target: targetNode,
-            type: "parent-child",
-            relationshipType: childRef.relationship_type || "biological"
-          });
+          const relationshipId = `parent-child-${sourceNode.id}-${targetNode.id}`;
+          if (!processedRelationships.has(relationshipId)) {
+            relationships.push({
+              source: sourceNode,
+              target: targetNode,
+              type: "parent-child",
+              relationshipType: childRef.relationship_type || "biological"
+            });
+            processedRelationships.add(relationshipId);
+          }
+        }
+      });
+    }
+    
+    // 2b. Also check the 'parents' array to create parent-child connections
+    if (node.parents && node.parents.length > 0) {
+      node.parents.forEach((parentRef: any) => {
+        const parentNode = nodeMap.get(parentRef.id);
+        if (parentNode) {
+          const relationshipId = `parent-child-${parentNode.id}-${sourceNode.id}`;
+          if (!processedRelationships.has(relationshipId)) {
+            relationships.push({
+              source: parentNode,
+              target: sourceNode,
+              type: "parent-child",
+              relationshipType: parentRef.relationship_type || "biological"
+            });
+            processedRelationships.add(relationshipId);
+          }
         }
       });
     }
@@ -469,12 +615,16 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
       node.siblings.forEach((siblingRef: any) => {
         const targetNode = nodeMap.get(siblingRef.id);
         if (targetNode) {
-          relationships.push({
-            source: sourceNode,
-            target: targetNode,
-            type: "sibling",
-            relationshipType: siblingRef.relationship_type || "biological"
-          });
+          const relationshipId = `sibling-${Math.min(sourceNode.id, targetNode.id)}-${Math.max(sourceNode.id, targetNode.id)}`;
+          if (!processedRelationships.has(relationshipId)) {
+            relationships.push({
+              source: sourceNode,
+              target: targetNode,
+              type: "sibling",
+              relationshipType: siblingRef.relationship_type || "biological"
+            });
+            processedRelationships.add(relationshipId);
+          }
         }
       });
     }
@@ -484,16 +634,21 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
       node.extended.forEach((extendedRef: any) => {
         const targetNode = nodeMap.get(extendedRef.id);
         if (targetNode) {
-          relationships.push({
-            source: sourceNode,
-            target: targetNode,
-            type: "extended",
-            relationshipType: extendedRef.relationship_type || "extended"
-          });
+          const relationshipId = `extended-${sourceNode.id}-${targetNode.id}`;
+          if (!processedRelationships.has(relationshipId)) {
+            relationships.push({
+              source: sourceNode,
+              target: targetNode,
+              type: "extended",
+              relationshipType: extendedRef.relationship_type || "extended"
+            });
+            processedRelationships.add(relationshipId);
+          }
         }
       });
     }
   });
   
+  console.log(`Created ${relationships.length} unique relationship lines`);
   return relationships;
 }

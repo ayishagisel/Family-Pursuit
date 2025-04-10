@@ -389,6 +389,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filteredStructure = prepareForSociogram(hierarchicalStructure);
       }
 
+      console.log("👨‍👩‍👧 Generation snapshot:");
+      hierarchicalStructure.forEach((m) => {
+        console.log(`${m.name}: Gen ${m.generation}`);
+      });
+
       // Return the appropriate data structure based on visualization type
       res.json(filteredStructure);
     } catch (error) {
