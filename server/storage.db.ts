@@ -33,6 +33,217 @@ function logOperation(operation: string, entity: string, data?: any): void {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Event methods
+  async getEvent(id: number): Promise<Event | undefined> {
+    logOperation("READ", "event", { id });
+    const results = await db.select().from(events).where(eq(events.id, id));
+    return results[0];
+  }
+
+  async getAllEvents(): Promise<Event[]> {
+    logOperation("READ", "events", { count: "all" });
+    return await db.select().from(events);
+  }
+
+  async getUpcomingEvents(): Promise<Event[]> {
+    logOperation("READ", "upcoming_events");
+    const now = new Date();
+    return await db
+      .select()
+      .from(events)
+      .where(gte(events.date, now))
+      .orderBy(events.date);
+  }
+
+  async createEvent(event: InsertEvent): Promise<Event> {
+    logOperation("CREATE", "event", event);
+    const results = await db.insert(events).values(event).returning();
+    return results[0];
+  }
+
+  async updateEvent(id: number, event: Partial<InsertEvent>): Promise<Event | undefined> {
+    logOperation("UPDATE", "event", { id, ...event });
+    const results = await db
+      .update(events)
+      .set(event)
+      .where(eq(events.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteEvent(id: number): Promise<boolean> {
+    logOperation("DELETE", "event", { id });
+    const results = await db.delete(events).where(eq(events.id, id)).returning();
+    return results.length > 0;
+  }
+
+  async addAttendee(eventId: number, userId: number): Promise<Event | undefined> {
+    logOperation("UPDATE", "event_attendee", { eventId, userId });
+    // Get the current event
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    if (!event) return undefined;
+
+    // Update the attendees array
+    let attendees = event.attendees || [];
+    if (!attendees.includes(userId)) {
+      attendees = [...attendees, userId];
+    }
+
+    // Update the event
+    const [updatedEvent] = await db
+      .update(events)
+      .set({ attendees })
+      .where(eq(events.id, eventId))
+      .returning();
+
+    return updatedEvent;
+  }
+
+  async removeAttendee(eventId: number, userId: number): Promise<Event | undefined> {
+    logOperation("UPDATE", "event_attendee_remove", { eventId, userId });
+    // Get the current event
+    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    if (!event) return undefined;
+
+    // Remove the user from attendees
+    let attendees = event.attendees || [];
+    attendees = attendees.filter(id => id !== userId);
+
+    // Update the event
+    const [updatedEvent] = await db
+      .update(events)
+      .set({ attendees })
+      .where(eq(events.id, eventId))
+      .returning();
+
+    return updatedEvent;
+  }
+
+  // Document methods
+  async getDocument(id: number): Promise<Document | undefined> {
+    logOperation("READ", "document", { id });
+    const results = await db.select().from(documents).where(eq(documents.id, id));
+    return results[0];
+  }
+
+  async getAllDocuments(): Promise<Document[]> {
+    logOperation("READ", "documents", { count: "all" });
+    return await db.select().from(documents);
+  }
+
+  async getSecureDocuments(): Promise<Document[]> {
+    logOperation("READ", "secure_documents");
+    return await db
+      .select()
+      .from(documents)
+      .where(eq(documents.documentType, "secure"));
+  }
+
+  async createDocument(document: InsertDocument): Promise<Document> {
+    logOperation("CREATE", "document", document);
+    const results = await db.insert(documents).values(document).returning();
+    return results[0];
+  }
+
+  async updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document | undefined> {
+    logOperation("UPDATE", "document", { id, ...document });
+    const results = await db
+      .update(documents)
+      .set(document)
+      .where(eq(documents.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteDocument(id: number): Promise<boolean> {
+    logOperation("DELETE", "document", { id });
+    const results = await db.delete(documents).where(eq(documents.id, id)).returning();
+    return results.length > 0;
+  }
+
+  // Help Request methods
+  async getHelpRequest(id: number): Promise<HelpRequest | undefined> {
+    logOperation("READ", "help_request", { id });
+    const results = await db.select().from(helpRequests).where(eq(helpRequests.id, id));
+    return results[0];
+  }
+
+  async getAllHelpRequests(): Promise<HelpRequest[]> {
+    logOperation("READ", "help_requests", { count: "all" });
+    return await db.select().from(helpRequests);
+  }
+
+  async createHelpRequest(helpRequest: InsertHelpRequest): Promise<HelpRequest> {
+    logOperation("CREATE", "help_request", helpRequest);
+    const results = await db.insert(helpRequests).values(helpRequest).returning();
+    return results[0];
+  }
+
+  async updateHelpRequest(id: number, helpRequest: Partial<InsertHelpRequest>): Promise<HelpRequest | undefined> {
+    logOperation("UPDATE", "help_request", { id, ...helpRequest });
+    const results = await db
+      .update(helpRequests)
+      .set(helpRequest)
+      .where(eq(helpRequests.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteHelpRequest(id: number): Promise<boolean> {
+    logOperation("DELETE", "help_request", { id });
+    const results = await db.delete(helpRequests).where(eq(helpRequests.id, id)).returning();
+    return results.length > 0;
+  }
+
+  async addVolunteer(requestId: number, userId: number): Promise<HelpRequest | undefined> {
+    logOperation("UPDATE", "help_request_volunteer", { requestId, userId });
+    // Get the current help request
+    const [helpRequest] = await db.select().from(helpRequests).where(eq(helpRequests.id, requestId));
+    if (!helpRequest) return undefined;
+
+    // Update the volunteers array
+    let volunteers = helpRequest.volunteers || [];
+    if (!volunteers.includes(userId)) {
+      volunteers = [...volunteers, userId];
+    }
+
+    // Update the status if we now have volunteers
+    const status = volunteers.length > 0 ? "has_volunteers" : "needs_volunteer";
+
+    // Update the help request
+    const [updatedRequest] = await db
+      .update(helpRequests)
+      .set({ volunteers, status })
+      .where(eq(helpRequests.id, requestId))
+      .returning();
+
+    return updatedRequest;
+  }
+
+  async removeVolunteer(requestId: number, userId: number): Promise<HelpRequest | undefined> {
+    logOperation("UPDATE", "help_request_volunteer_remove", { requestId, userId });
+    // Get the current help request
+    const [helpRequest] = await db.select().from(helpRequests).where(eq(helpRequests.id, requestId));
+    if (!helpRequest) return undefined;
+
+    // Remove the user from volunteers
+    let volunteers = helpRequest.volunteers || [];
+    volunteers = volunteers.filter(id => id !== userId);
+
+    // Update the status if we have no volunteers
+    const status = volunteers.length === 0 ? "needs_volunteer" : "has_volunteers";
+
+    // Update the help request
+    const [updatedRequest] = await db
+      .update(helpRequests)
+      .set({ volunteers, status })
+      .where(eq(helpRequests.id, requestId))
+      .returning();
+
+    return updatedRequest;
+  }
+
+  // Family Member methods
   async getFamilyMember(id: number): Promise<FamilyMember | undefined> {
     const [member] = await db
       .select()
@@ -273,8 +484,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * 🔁 Get inverse relationship
+   * Message methods
    */
+  async getMessage(id: number): Promise<Message | undefined> {
+    logOperation("READ", "message", { id });
+    const results = await db.select().from(messages).where(eq(messages.id, id));
+    return results[0];
+  }
+
+  async getMessagesBySender(senderId: number): Promise<Message[]> {
+    logOperation("READ", "messages_by_sender", { senderId });
+    return await db.select().from(messages).where(eq(messages.senderId, senderId));
+  }
+
+  async getMessagesByReceiver(receiverId: number): Promise<Message[]> {
+    logOperation("READ", "messages_by_receiver", { receiverId });
+    return await db.select().from(messages).where(eq(messages.receiverId, receiverId));
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    logOperation("CREATE", "message", message);
+    const results = await db.insert(messages).values(message).returning();
+    return results[0];
+  }
+
+  async markMessageAsRead(id: number): Promise<Message | undefined> {
+    logOperation("UPDATE", "message_read", { id });
+    const results = await db
+      .update(messages)
+      .set({ read: true })
+      .where(eq(messages.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteMessage(id: number): Promise<boolean> {
+    logOperation("DELETE", "message", { id });
+    const results = await db.delete(messages).where(eq(messages.id, id)).returning();
+    return results.length > 0;
+  }
+
   private getInverseRelationshipType(relationType: string): string {
     const t = relationType.toLowerCase();
     switch (t) {
