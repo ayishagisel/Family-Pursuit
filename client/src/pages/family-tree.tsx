@@ -41,9 +41,9 @@ const FamilyTreePage: React.FC = () => {
     console.log("🌳 Final nested tree (used by TreeCanvas):", tree);
   }, [tree]);
 
-  // Optional: Family member detail narrative
+  // Family member detail narrative
   const { data: memberDetails, isLoading: isDetailLoading } = useQuery<any>({
-    queryKey: ["/api/family-members", selectedMember?.id, "/narrative"],
+    queryKey: [`/api/family-members/${selectedMember?.id}/narrative`],
     enabled: !!selectedMember?.id,
   });
 
@@ -208,7 +208,12 @@ const FamilyTreePage: React.FC = () => {
                         ) : memberDetails?.narrative ? (
                           <div className="prose max-w-none dark:prose-invert">
                             <h3>Personal Story</h3>
-                            <p>{memberDetails.narrative}</p>
+                            <div dangerouslySetInnerHTML={{ 
+                              __html: memberDetails.narrative
+                                .replace(/\n\s*\n/g, '<br><br>')
+                                .replace(/\n(?!\s*<)/g, '<br>')
+                                .replace(/\# ([^\n]+)/g, '<h4>$1</h4>') // Support markdown headings
+                            }} />
                           </div>
                         ) : (
                           <div className="text-center text-muted-foreground">
@@ -311,7 +316,12 @@ const FamilyTreePage: React.FC = () => {
                         ) : memberDetails?.insights ? (
                           <div className="prose max-w-none dark:prose-invert">
                             <h3>Family Insights</h3>
-                            <p>{memberDetails.insights}</p>
+                            <div dangerouslySetInnerHTML={{ 
+                              __html: memberDetails.insights
+                                .replace(/\n\s*\n/g, '<br><br>')
+                                .replace(/\n(?!\s*<)/g, '<br>')
+                                .replace(/\# ([^\n]+)/g, '<h4>$1</h4>') // Support markdown headings
+                            }} />
                           </div>
                         ) : (
                           <div className="text-center text-muted-foreground">
