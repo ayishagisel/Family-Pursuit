@@ -11,6 +11,7 @@ import FamilyTreePage from "@/pages/family-tree";
 import EventsPage from "@/pages/events";
 import DocumentsPage from "@/pages/documents";
 import HelpNeededPage from "@/pages/help-needed";
+import HousingIssuesPage from "@/pages/housing-issues";
 import MessagesPage from "@/pages/messages";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";

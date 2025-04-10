@@ -742,7 +742,86 @@ export class MemStorage implements IStorage {
   async deleteMessage(id: number): Promise<boolean> {
     return this.messages.delete(id);
   }
+  
+  // Housing Issue methods
+  async getHousingIssue(id: number): Promise<HousingIssue | undefined> {
+    return this.housingIssues.get(id);
+  }
+
+  async getHousingIssuesByMember(memberId: number): Promise<HousingIssue[]> {
+    return Array.from(this.housingIssues.values()).filter(
+      issue => issue.family_member_id === memberId
+    );
+  }
+
+  async getAllHousingIssues(): Promise<HousingIssue[]> {
+    return Array.from(this.housingIssues.values());
+  }
+
+  async createHousingIssue(issue: InsertHousingIssue): Promise<HousingIssue> {
+    const id = this.currentHousingIssueId++;
+    const now = new Date();
+    const housingIssue: HousingIssue = { 
+      ...issue, 
+      id, 
+      created_at: issue.created_at || now,
+      resolved: issue.resolved || false,
+      hpd_violations: issue.hpd_violations || []
+    };
+    this.housingIssues.set(id, housingIssue);
+    console.log(`Housing issue created: ${JSON.stringify(housingIssue)}`);
+    return housingIssue;
+  }
+
+  async updateHousingIssue(id: number, issue: Partial<InsertHousingIssue>): Promise<HousingIssue | undefined> {
+    const existingIssue = this.housingIssues.get(id);
+    if (!existingIssue) return undefined;
+    
+    const updatedIssue = { ...existingIssue, ...issue };
+    this.housingIssues.set(id, updatedIssue);
+    return updatedIssue;
+  }
+
+  async deleteHousingIssue(id: number): Promise<boolean> {
+    return this.housingIssues.delete(id);
+  }
+
+  async checkHPDViolations(address: string): Promise<any[]> {
+    console.log(`Checking HPD violations for address: ${address}`);
+    // In a real implementation, this would make a call to NYC HPD API
+    // For now, return sample data based on the address
+    
+    // Simple deterministic simulation - if address contains certain keywords, return violations
+    const hasViolations = 
+      address.toLowerCase().includes('bronx') || 
+      address.toLowerCase().includes('brooklyn') ||
+      address.toLowerCase().includes('queens') ||
+      address.toLowerCase().includes('manhattan') ||
+      address.toLowerCase().includes('staten');
+    
+    if (hasViolations) {
+      // Sample violation data structure that would typically come from HPD API
+      return [
+        {
+          buildingId: "123456",
+          registrationId: "987654",
+          violationId: "V123456",
+          violationType: address.toLowerCase().includes('heat') ? "HEAT" : "CLASS B",
+          status: "OPEN",
+          inspectionDate: new Date().toISOString().split('T')[0],
+          certifiedDate: null,
+          orderNumber: "HD123456",
+          novDescription: address.toLowerCase().includes('heat') ? 
+            "INADEQUATE HEAT: Heat not maintained as required in the dwelling unit." : 
+            "MAINTENANCE CODE VIOLATION: General maintenance issue needing attention.",
+          apartment: "3B",
+          story: "3",
+          orderNumber_Violation: "HD123456-V123456"
+        }
+      ];
+    }
+    return [];
+  }
 }
 
-// Use DatabaseStorage for PostgreSQL
 export const storage = new DatabaseStorage();

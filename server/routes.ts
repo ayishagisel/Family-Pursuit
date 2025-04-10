@@ -1036,6 +1036,137 @@ The family's strengths lie in its commitment to maintaining connections despite 
     },
   );
 
+  // Housing Issues API
+  app.get("/api/housing-issues", async (req: Request, res: Response) => {
+    try {
+      const issues = await storage.getAllHousingIssues();
+      res.json(issues);
+    } catch (error) {
+      console.error("Error fetching housing issues:", error);
+      res.status(500).json({ message: "Failed to fetch housing issues" });
+    }
+  });
+
+  app.get("/api/housing-issues/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+
+      const issue = await storage.getHousingIssue(id);
+      if (!issue) {
+        return res.status(404).json({ message: "Housing issue not found" });
+      }
+
+      res.json(issue);
+    } catch (error) {
+      console.error("Error fetching housing issue:", error);
+      res.status(500).json({ message: "Failed to fetch housing issue" });
+    }
+  });
+
+  app.get("/api/family-members/:id/housing-issues", async (req: Request, res: Response) => {
+    try {
+      const memberId = parseInt(req.params.id);
+      if (isNaN(memberId)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+
+      const issues = await storage.getHousingIssuesByMember(memberId);
+      res.json(issues);
+    } catch (error) {
+      console.error("Error fetching housing issues for family member:", error);
+      res.status(500).json({ message: "Failed to fetch housing issues for family member" });
+    }
+  });
+
+  app.post("/api/housing-issues", async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertHousingIssueSchema.parse(req.body);
+      const newIssue = await storage.createHousingIssue(validatedData);
+      res.status(201).json(newIssue);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Invalid data", errors: error.errors });
+      }
+
+      console.error("Error creating housing issue:", error);
+      res.status(500).json({ message: "Failed to create housing issue" });
+    }
+  });
+
+  app.put("/api/housing-issues/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+
+      const validatedData = insertHousingIssueSchema.partial().parse(req.body);
+      const updatedIssue = await storage.updateHousingIssue(id, validatedData);
+
+      if (!updatedIssue) {
+        return res.status(404).json({ message: "Housing issue not found" });
+      }
+
+      res.json(updatedIssue);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ message: "Invalid data", errors: error.errors });
+      }
+
+      console.error("Error updating housing issue:", error);
+      res.status(500).json({ message: "Failed to update housing issue" });
+    }
+  });
+
+  app.delete("/api/housing-issues/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+
+      const success = await storage.deleteHousingIssue(id);
+
+      if (!success) {
+        return res.status(404).json({ message: "Housing issue not found" });
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting housing issue:", error);
+      res.status(500).json({ message: "Failed to delete housing issue" });
+    }
+  });
+
+  // Check HPD violations for an address
+  app.get("/api/housing/check-violations", async (req: Request, res: Response) => {
+    try {
+      const { address } = req.query;
+      
+      if (!address || typeof address !== 'string') {
+        return res.status(400).json({ message: "Address is required" });
+      }
+
+      const violations = await storage.checkHPDViolations(address);
+      res.json({ 
+        address,
+        violations,
+        count: violations.length,
+        hasViolations: violations.length > 0
+      });
+    } catch (error) {
+      console.error("Error checking HPD violations:", error);
+      res.status(500).json({ message: "Failed to check HPD violations" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
