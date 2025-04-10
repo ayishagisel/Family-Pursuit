@@ -461,40 +461,31 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
   // Convert to d3 hierarchy for layout calculation
   const root = d3Hierarchy.hierarchy(hierarchyRoot);
   
-  // Configure the tree layout for good spacing
+  // Configure the tree layout with good spacing for family trees
   const treeLayout = d3Hierarchy.tree<any>()
-    .nodeSize([150, 180]) // [width, height] spacing between nodes
+    .nodeSize([150, 100]) // [width, height] spacing between nodes
     .separation((a, b) => {
       // Increase separation between different parent subtrees
-      return a.parent === b.parent ? 1.2 : 1.8;
+      return a.parent === b.parent ? 1.5 : 2.2;
     });
   
   // Apply the layout to get positions
   const treeData = treeLayout(root);
   
+  // Collect all descendants into a flat array for positioning
+  const allNodes = treeData.descendants();
+  
   // Convert back to our format with positions
   const positionedNodes: PositionedNode[] = [];
   const processedSpouses = new Set<number>();
   
-  // Process all nodes using d3 hierarchy
-  // Since descendants() might not be directly available in the type definition,
-  // we'll use a manual traversal function
-  function traverseTree(node: any, isRoot = false) {
-    if (!node || !node.data) return;
-    
-    // Skip the artificial root node
-    if (isRoot) {
-      // Process children of root
-      if (node.children) {
-        node.children.forEach((child: any) => traverseTree(child));
-      }
-      return;
-    }
+  // Process all nodes from the tree (skip the root which is artificial)
+  for (let i = 1; i < allNodes.length; i++) {
+    const node = allNodes[i];
+    if (!node || !node.data) continue;
     
     const originalNode = node.data;
-    
-    // Skip the artificial root node
-    if (originalNode.id === "root") return;
+    if (originalNode.id === "root") continue;
     
     // Create a unique key for the node
     const uniqueNodeId = `node-${originalNode.id}`;
@@ -504,7 +495,10 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
       ...originalNode,
       x: node.x || 0,      // d3 tree layout uses x for horizontal position
       y: node.y || 0,      // and y for vertical position
-      _uniqueKey: uniqueNodeId
+      _uniqueKey: uniqueNodeId,
+      // Preserve relationship type information
+      type: originalNode.relationship_type || originalNode.type,
+      relation_category: originalNode.relation_category
     });
     
     // Handle spouse positioning side-by-side
@@ -521,15 +515,7 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
       // Mark the spouse as processed to avoid duplicates
       processedSpouses.add(originalNode.spouse.id);
     }
-    
-    // Recursively process children
-    if (node.children) {
-      node.children.forEach((child: any) => traverseTree(child));
-    }
   }
-  
-  // Start traversal from the root
-  traverseTree(treeData, true);
   
   return positionedNodes;
 }
