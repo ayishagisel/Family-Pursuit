@@ -122,6 +122,9 @@ export const documents = pgTable("documents", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   permissions: jsonb("permissions").default("{}"),
   documentType: text("document_type").notNull().default("generic"), // "pdf", "image", "contract", etc.
+  isSecure: boolean("is_secure").default(false),
+  accessLevel: text("access_level").default("member"),
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
 });
 
 export const insertDocumentSchema = createInsertSchema(documents).pick({
@@ -130,6 +133,8 @@ export const insertDocumentSchema = createInsertSchema(documents).pick({
   user_id: true,
   permissions: true,
   documentType: true,
+  isSecure: true,
+  accessLevel: true,
 });
 
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;

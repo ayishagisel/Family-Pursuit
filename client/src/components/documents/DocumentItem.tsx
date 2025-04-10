@@ -28,7 +28,7 @@ const DocumentItem = ({ document, onDownload }: DocumentItemProps) => {
   
   // Get color class based on document type
   const getDocumentColorClass = () => {
-    if (document.isSecure) {
+    if (document.isSecure === true) {
       return "bg-neutral-200 dark:bg-neutral-700";
     }
     
@@ -38,6 +38,12 @@ const DocumentItem = ({ document, onDownload }: DocumentItemProps) => {
       case "image":
       case "zip":
         return "bg-secondary/10";
+      case "legal":
+        return "bg-yellow-100 dark:bg-yellow-900/30";
+      case "medical":
+        return "bg-red-100 dark:bg-red-900/30";
+      case "contract":
+        return "bg-blue-100 dark:bg-blue-900/30";
       default:
         return "bg-primary/10";
     }
@@ -45,7 +51,7 @@ const DocumentItem = ({ document, onDownload }: DocumentItemProps) => {
   
   // Get text color class based on document type
   const getTextColorClass = () => {
-    if (document.isSecure) {
+    if (document.isSecure === true) {
       return "text-neutral-500 dark:text-neutral-400";
     }
     
@@ -55,6 +61,12 @@ const DocumentItem = ({ document, onDownload }: DocumentItemProps) => {
       case "image":
       case "zip":
         return "text-secondary";
+      case "legal":
+        return "text-yellow-600 dark:text-yellow-400";
+      case "medical":
+        return "text-red-600 dark:text-red-400";
+      case "contract":
+        return "text-blue-600 dark:text-blue-400";
       default:
         return "text-primary";
     }
@@ -91,19 +103,22 @@ const DocumentItem = ({ document, onDownload }: DocumentItemProps) => {
       </div>
       <div>
         <div className="font-medium text-sm">{document.title}</div>
-        {document.isSecure ? (
+        {document.isSecure === true ? (
           <div className="text-xs text-neutral-600 dark:text-neutral-400 flex items-center">
             <i className="fas fa-lock text-primary mr-1"></i>
             <span>{document.accessLevel === "admin" ? "Admin access only" : "Limited access"}</span>
           </div>
         ) : (
           <div className="text-xs text-neutral-600 dark:text-neutral-400">
-            Uploaded {formatTimeAgo(new Date(document.uploadedAt))}
+            {document.uploadedAt ? 
+              `Uploaded ${formatTimeAgo(new Date(document.uploadedAt))}` : 
+              `Added ${formatTimeAgo(new Date(document.created_at))}`
+            }
           </div>
         )}
       </div>
       <div className="ml-auto">
-        {document.isSecure ? (
+        {document.isSecure === true ? (
           <button className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200">
             <i className="fas fa-key"></i>
           </button>
