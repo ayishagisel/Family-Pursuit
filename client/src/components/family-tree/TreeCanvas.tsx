@@ -67,8 +67,9 @@ const TreeCanvas = ({
     console.log("📦 Received tree with", nodes.length, "root nodes");
   }, [nodes]);
 
-  // Process the data for hierarchical layout
+  // Process the data based on visualization type
   const { positionedNodes, relationships } = useMemo(() => {
+    console.log("Processing", nodes.length, "nodes with visualization type:", visualizationType);
     return processHierarchicalData(nodes, visualizationType);
   }, [nodes, visualizationType]);
 

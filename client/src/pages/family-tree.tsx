@@ -99,7 +99,7 @@ const FamilyTreePage: React.FC = () => {
           <div className="w-full bg-background border rounded-xl shadow-sm overflow-hidden h-[600px]">
             <TreeCanvas
               nodes={tree}
-              layout={visualizationType as any}
+              visualizationType={visualizationType as "hierarchical" | "ancestor" | "descendant" | "sociogram" | "flat"}
               onNodeClick={handleMemberClick}
               onZoomChange={handleZoomChange}
               zoomIn={zoomIn}
@@ -144,9 +144,183 @@ const FamilyTreePage: React.FC = () => {
                       </TabsTrigger>
                     </TabsList>
 
-                    {/* Keep all your original tab content as-is below */}
-                    {/* No change needed to your detail tabs. They work perfectly */}
-                    {/* I omitted them here for brevity, but leave them exactly as you have! */}
+                    <TabsContent value="info" className="mt-4">
+                      <div className="grid gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col space-y-3">
+                            <div>
+                              <h3 className="font-medium text-sm">Role</h3>
+                              <p className="text-muted-foreground">
+                                {selectedMember.role || "Not specified"}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-sm">Birth Date</h3>
+                              <p className="text-muted-foreground">
+                                {selectedMember.birth_date
+                                  ? new Date(selectedMember.birth_date).toLocaleDateString()
+                                  : "Not specified"}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-sm">Location</h3>
+                              <p className="text-muted-foreground">
+                                {selectedMember.location || "Not specified"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col space-y-3">
+                            <div>
+                              <h3 className="font-medium text-sm">Occupation</h3>
+                              <p className="text-muted-foreground">
+                                {selectedMember.occupation || "Not specified"}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-sm">Personality</h3>
+                              <p className="text-muted-foreground">
+                                {selectedMember.personality_traits?.join(", ") || "Not specified"}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="font-medium text-sm">Interests</h3>
+                              <p className="text-muted-foreground">
+                                {selectedMember.interests?.join(", ") || "Not specified"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-sm">Bio</h3>
+                          <p className="text-muted-foreground">
+                            {selectedMember.bio || "No biography available."}
+                          </p>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="narrative" className="mt-4">
+                      <ScrollArea className="h-[400px] rounded-md border p-4">
+                        {isDetailLoading ? (
+                          <div className="flex justify-center items-center h-32">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : memberDetails?.narrative ? (
+                          <div className="prose max-w-none dark:prose-invert">
+                            <h3>Personal Story</h3>
+                            <p>{memberDetails.narrative}</p>
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground">
+                            <p>No personal story available for this family member.</p>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </TabsContent>
+
+                    <TabsContent value="relationships" className="mt-4">
+                      <div className="space-y-4">
+                        {selectedMember.spouses && selectedMember.spouses.length > 0 && (
+                          <div>
+                            <h3 className="font-medium text-sm mb-2">Spouse</h3>
+                            <ul className="list-disc pl-5 text-muted-foreground">
+                              {selectedMember.spouses.map((spouse) => (
+                                <li key={spouse.id}>
+                                  {spouse.name}{" "}
+                                  <span className="text-xs opacity-70">
+                                    ({spouse.notes || "Spouse"})
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {selectedMember.children && selectedMember.children.length > 0 && (
+                          <div>
+                            <h3 className="font-medium text-sm mb-2">Children</h3>
+                            <ul className="list-disc pl-5 text-muted-foreground">
+                              {selectedMember.children.map((child) => (
+                                <li key={child.id}>
+                                  {child.name}{" "}
+                                  <span className="text-xs opacity-70">
+                                    ({child.relationship_type || "Child"})
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {selectedMember.parents && selectedMember.parents.length > 0 && (
+                          <div>
+                            <h3 className="font-medium text-sm mb-2">Parents</h3>
+                            <ul className="list-disc pl-5 text-muted-foreground">
+                              {selectedMember.parents.map((parent) => (
+                                <li key={parent.id}>
+                                  {parent.name}{" "}
+                                  <span className="text-xs opacity-70">
+                                    ({parent.relationship_type || "Parent"})
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {selectedMember.siblings && selectedMember.siblings.length > 0 && (
+                          <div>
+                            <h3 className="font-medium text-sm mb-2">Siblings</h3>
+                            <ul className="list-disc pl-5 text-muted-foreground">
+                              {selectedMember.siblings.map((sibling) => (
+                                <li key={sibling.id}>
+                                  {sibling.name}{" "}
+                                  <span className="text-xs opacity-70">
+                                    ({sibling.relationship_type || "Sibling"})
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {selectedMember.extended && selectedMember.extended.length > 0 && (
+                          <div>
+                            <h3 className="font-medium text-sm mb-2">Extended Family</h3>
+                            <ul className="list-disc pl-5 text-muted-foreground">
+                              {selectedMember.extended.map((relative) => (
+                                <li key={relative.id}>
+                                  {relative.name}{" "}
+                                  <span className="text-xs opacity-70">
+                                    ({relative.relationship_type || "Relative"})
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="insights" className="mt-4">
+                      <ScrollArea className="h-[400px] rounded-md border p-4">
+                        {isDetailLoading ? (
+                          <div className="flex justify-center items-center h-32">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : memberDetails?.insights ? (
+                          <div className="prose max-w-none dark:prose-invert">
+                            <h3>Family Insights</h3>
+                            <p>{memberDetails.insights}</p>
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground">
+                            <p>No insights available for this family member.</p>
+                            <p className="text-sm mt-2">Select 'Story' to see their narrative instead.</p>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </TabsContent>
                   </Tabs>
                 )}
               </CardContent>
