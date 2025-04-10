@@ -120,6 +120,7 @@ function restructureByGeneration(flatData: TreeNode[]): TreeNode[] {
       const potentialParents = flatData.filter(parent => {
         // Look for nodes in previous generation where this node appears in their children
         return parent.generation === currentGen - 1 && 
+               parent.children && Array.isArray(parent.children) &&
                parent.children.some(child => child.id === node.id);
       });
       

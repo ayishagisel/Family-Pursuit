@@ -5,6 +5,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Gets the initials from a name string
+ * e.g. "John Doe" -> "JD", "Alice" -> "A"
+ */
+export function getInitials(name: string): string {
+  if (!name) return "?";
+  
+  const parts = name.trim().split(/\s+/);
+  
+  if (parts.length === 1) {
+    // Just one name, return first letter
+    return parts[0].charAt(0).toUpperCase();
+  }
+  
+  // Get first letter of first and last name
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
 export function createThemeRoot() {
   // Import theme.json and set CSS variables for theming
   try {

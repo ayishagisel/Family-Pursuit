@@ -13,6 +13,7 @@ type VisualizationType =
   | "sociogram"
   | "flat";
 
+// Interface for TreeCanvas component props
 interface TreeCanvasProps {
   nodes: any[]; // Hierarchical tree with children[]
   layout?: string;
@@ -30,9 +31,11 @@ interface PositionedNode extends FamilyMember {
   y: number;
   children?: PositionedNode[];
   _children?: PositionedNode[];
-  parent?: PositionedNode;
-  spouse?: PositionedNode;
+  parent?: PositionedNode | null;
+  spouse?: PositionedNode | null;
   relationshipType?: string;
+  _uniqueKey?: string;
+  generation?: number;
 }
 
 // Interface for relationship lines
@@ -43,6 +46,7 @@ interface RelationshipLineData {
   relationshipType: string;
 }
 
+// Main component
 const TreeCanvas = ({
   nodes = [],
   layout = "hierarchical",
@@ -250,20 +254,20 @@ const TreeCanvas = ({
 
 export default TreeCanvas;
 
-// Helper function to process hierarchical data
+// Helper function to process hierarchical data with improved handling for parent-child relationships
 function processHierarchicalData(nodes: any[], visualizationType: VisualizationType) {
   if (!nodes || nodes.length === 0) {
     return { positionedNodes: [], relationships: [] };
   }
   
-  // Create a hierarchical structure suitable for d3.hierarchy
-  const hierarchy = createFamilyHierarchy(nodes);
+  // Create a tree representation suitable for d3.hierarchy
+  const hierarchyData = createFamilyHierarchy(nodes);
   
   // Apply the appropriate layout algorithm based on visualization type
   let positionedNodes: PositionedNode[] = [];
   switch (visualizationType) {
     case "hierarchical":
-      positionedNodes = applyHierarchicalLayout(hierarchy);
+      positionedNodes = applyHierarchicalLayout(hierarchyData);
       break;
     case "flat":
       positionedNodes = applyFlatLayout(nodes);
@@ -272,7 +276,7 @@ function processHierarchicalData(nodes: any[], visualizationType: VisualizationT
       positionedNodes = applySociogramLayout(nodes);
       break;
     default:
-      positionedNodes = applyHierarchicalLayout(hierarchy);
+      positionedNodes = applyHierarchicalLayout(hierarchyData);
   }
   
   // Extract relationships from the positioned nodes
@@ -281,117 +285,171 @@ function processHierarchicalData(nodes: any[], visualizationType: VisualizationT
   return { positionedNodes, relationships };
 }
 
-// Create a family hierarchy for d3
+// Create a family hierarchy with proper parent-child relationships
 function createFamilyHierarchy(nodes: any[]) {
-  // Root for the hierarchy
+  // Create an artificial root node for the hierarchy
   const rootNode = {
     id: "root",
     name: "Family Root",
-    children: []
+    children: [] as any[]
   };
   
   // Map of all nodes for quick lookup
-  const nodeMap = new Map();
+  const nodeMap = new Map<number | string, any>();
   
-  // First pass: Create nodes
+  // Initialize nodes with proper structure for hierarchy processing
   nodes.forEach(node => {
-    nodeMap.set(node.id, { 
+    const processedNode = { 
       ...node, 
       children: [],
-      hierarchyPosition: {}
-    });
+      _processed: false,
+      generation: node.generation || 0
+    };
+    nodeMap.set(node.id, processedNode);
   });
   
-  // Handle parent-child relationships
+  // Find parents with children and establish the relationships
   nodes.forEach(node => {
-    // Process children if they exist
+    // Skip already processed nodes
+    if (nodeMap.get(node.id)._processed) return;
+    
+    const currentNode = nodeMap.get(node.id);
+    
+    // Process children
     if (node.children && node.children.length > 0) {
-      const parentNode = nodeMap.get(node.id);
       node.children.forEach((childRef: any) => {
         const childNode = nodeMap.get(childRef.id);
-        if (childNode) {
-          parentNode.children.push(childNode);
-          childNode.parent = parentNode;
+        if (childNode && !childNode._processed) {
+          // Add child to parent's children array
+          currentNode.children.push(childNode);
+          // Mark as processed to avoid duplicates
+          childNode._processed = true;
         }
       });
     }
     
-    // Process spouse relationships
+    // Process spouses - add to parent node's special property
     if (node.spouses && node.spouses.length > 0) {
-      const currentNode = nodeMap.get(node.id);
-      // Only add the first spouse for simplicity in this implementation
-      const spouseRef = node.spouses[0];
-      if (spouseRef) {
+      currentNode.spouses = [];
+      node.spouses.forEach((spouseRef: any) => {
         const spouseNode = nodeMap.get(spouseRef.id);
         if (spouseNode) {
-          currentNode.spouse = spouseNode;
-          spouseNode.spouse = currentNode; // Bidirectional
+          // Store spouse reference
+          currentNode.spouses.push(spouseNode);
+          
+          // First spouse is primary
+          if (!currentNode.spouse) {
+            currentNode.spouse = spouseNode;
+          }
         }
-      }
+      });
     }
+    
+    // Mark as processed
+    currentNode._processed = true;
   });
   
-  // Find root nodes (those without parents)
-  nodes.forEach(node => {
-    const processedNode = nodeMap.get(node.id);
-    if (!processedNode.parent) {
-      rootNode.children.push(processedNode);
+  // Find nodes without parents to serve as roots
+  const rootNodes = [];
+  
+  // Converting entries to array to avoid iterator issues
+  const nodeEntries = Array.from(nodeMap.entries());
+  for (const [id, node] of nodeEntries) {
+    // A node is a root if it has no parent or its generation is 0
+    const isRoot = (node.generation === 0 || node.generation === 1) && 
+                  (!node.parent || node.parent === null);
+    
+    if (isRoot) {
+      rootNodes.push(node);
     }
-  });
+  }
+  
+  // If we found valid roots, add them to the artificial root
+  if (rootNodes.length > 0) {
+    rootNode.children = rootNodes;
+  } else {
+    // If no roots were found, use all nodes as roots
+    // This can happen with inconsistent data
+    rootNode.children = Array.from(nodeMap.values());
+  }
   
   return rootNode;
 }
 
 // Apply hierarchical tree layout using d3-hierarchy
 function applyHierarchicalLayout(hierarchyRoot: any) {
-  // Convert to d3 hierarchy
+  // Convert to d3 hierarchy for layout calculation
   const root = d3Hierarchy.hierarchy(hierarchyRoot);
   
-  // Configure the tree layout
-  const treeLayout = d3Hierarchy.tree()
-    .nodeSize([150, 160]) // Width x Height spacing between nodes
+  // Configure the tree layout for good spacing
+  const treeLayout = d3Hierarchy.tree<any>()
+    .nodeSize([150, 180]) // [width, height] spacing between nodes
     .separation((a, b) => {
-      // Increase separation between different parents
+      // Increase separation between different parent subtrees
       return a.parent === b.parent ? 1.2 : 1.8;
     });
   
-  // Apply the layout
-  const tree = treeLayout(root);
+  // Apply the layout to get positions
+  const treeData = treeLayout(root);
   
   // Convert back to our format with positions
   const positionedNodes: PositionedNode[] = [];
-  const processedSpouses = new Set<number>(); // Track processed spouse IDs
+  const processedSpouses = new Set<number>();
   
-  // Process all nodes except the artificial root
-  tree.descendants().slice(1).forEach(d => {
-    const originalNode = d.data;
+  // Process all nodes using d3 hierarchy
+  // Since descendants() might not be directly available in the type definition,
+  // we'll use a manual traversal function
+  function traverseTree(node: any, isRoot = false) {
+    if (!node || !node.data) return;
+    
+    // Skip the artificial root node
+    if (isRoot) {
+      // Process children of root
+      if (node.children) {
+        node.children.forEach((child: any) => traverseTree(child));
+      }
+      return;
+    }
+    
+    const originalNode = node.data;
     
     // Skip the artificial root node
     if (originalNode.id === "root") return;
     
-    // Create a unique key for tree nodes to avoid React key warnings
+    // Create a unique key for the node
     const uniqueNodeId = `node-${originalNode.id}`;
+    
+    // Add the node to the positioned nodes list
     positionedNodes.push({
       ...originalNode,
-      x: d.x,      // D3 tree layout uses x for horizontal position
-      y: d.y,      // And y for vertical position
+      x: node.x || 0,      // d3 tree layout uses x for horizontal position
+      y: node.y || 0,      // and y for vertical position
       _uniqueKey: uniqueNodeId
     });
     
-    // Handle spouse positioning (place side by side)
+    // Handle spouse positioning side-by-side
     if (originalNode.spouse && !processedSpouses.has(originalNode.spouse.id)) {
       const uniqueSpouseId = `spouse-${originalNode.spouse.id}`;
+      
       positionedNodes.push({
         ...originalNode.spouse,
-        x: d.x + 80, // Position spouse to the right
-        y: d.y,      // Same vertical level
+        x: (node.x || 0) + 80, // Position spouse to the right
+        y: node.y || 0,      // Same vertical level as the person
         _uniqueKey: uniqueSpouseId
       });
       
       // Mark the spouse as processed to avoid duplicates
       processedSpouses.add(originalNode.spouse.id);
     }
-  });
+    
+    // Recursively process children
+    if (node.children) {
+      node.children.forEach((child: any) => traverseTree(child));
+    }
+  }
+  
+  // Start traversal from the root
+  traverseTree(treeData, true);
   
   return positionedNodes;
 }
@@ -400,8 +458,9 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
 function applyFlatLayout(nodes: any[]) {
   return nodes.map((node, index) => ({
     ...node,
-    x: index * 180,
-    y: 250,
+    x: index * 150,
+    y: 200,
+    _uniqueKey: `flat-${node.id}`
   }));
 }
 
@@ -416,6 +475,7 @@ function applySociogramLayout(nodes: any[]) {
     ...node,
     x: centerX + radius * Math.cos(i * angleStep),
     y: centerY + radius * Math.sin(i * angleStep),
+    _uniqueKey: `sociogram-${node.id}`
   }));
 }
 
@@ -435,7 +495,7 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
     if (!sourceNode) return;
     
     // 1. Spouse relationships (horizontal connections)
-    if (node.spouses && node.spouses.length > 0) {
+    if (node.spouses && Array.isArray(node.spouses) && node.spouses.length > 0) {
       node.spouses.forEach((spouseRef: any) => {
         const targetNode = nodeMap.get(spouseRef.id);
         if (targetNode) {
@@ -450,7 +510,7 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
     }
     
     // 2. Parent-child relationships (vertical connections)
-    if (node.children && node.children.length > 0) {
+    if (node.children && Array.isArray(node.children) && node.children.length > 0) {
       node.children.forEach((childRef: any) => {
         const targetNode = nodeMap.get(childRef.id);
         if (targetNode) {
@@ -464,8 +524,23 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
       });
     }
     
-    // 3. Sibling relationships
-    if (node.siblings && node.siblings.length > 0) {
+    // 3. Child-parent relationships (also vertical, but in reverse)
+    if (node.parents && Array.isArray(node.parents) && node.parents.length > 0) {
+      node.parents.forEach((parentRef: any) => {
+        const targetNode = nodeMap.get(parentRef.id);
+        if (targetNode) {
+          relationships.push({
+            source: sourceNode,
+            target: targetNode,
+            type: "parent-child",
+            relationshipType: `child-to-${parentRef.relationship_type || "parent"}`
+          });
+        }
+      });
+    }
+    
+    // 4. Sibling relationships (lateral connections)
+    if (node.siblings && Array.isArray(node.siblings) && node.siblings.length > 0) {
       node.siblings.forEach((siblingRef: any) => {
         const targetNode = nodeMap.get(siblingRef.id);
         if (targetNode) {
@@ -473,14 +548,14 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
             source: sourceNode,
             target: targetNode,
             type: "sibling",
-            relationshipType: siblingRef.relationship_type || "biological"
+            relationshipType: siblingRef.relationship_type || "sibling"
           });
         }
       });
     }
     
-    // 4. Extended family relationships
-    if (node.extended && node.extended.length > 0) {
+    // 5. Extended family relationships (various connections)
+    if (node.extended && Array.isArray(node.extended) && node.extended.length > 0) {
       node.extended.forEach((extendedRef: any) => {
         const targetNode = nodeMap.get(extendedRef.id);
         if (targetNode) {
