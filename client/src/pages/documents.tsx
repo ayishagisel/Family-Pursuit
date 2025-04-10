@@ -13,6 +13,7 @@ const DocumentsPage = () => {
   const { toast } = useToast();
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [filter, setFilter] = useState(""); // For document type filtering
   
   // Fetch documents
   const { data: documents = [], isLoading } = useQuery({
@@ -34,6 +35,31 @@ const DocumentsPage = () => {
       title: "Download Started",
       description: `Downloading ${document.title}...`,
     });
+  };
+  
+  // Filter documents based on tab and document type filter
+  const getFilteredDocuments = () => {
+    let filtered = [];
+    
+    // First apply the tab filter
+    if (activeTab === "all") {
+      filtered = documents;
+    } else if (activeTab === "recent") {
+      filtered = [...documents].sort((a, b) => {
+        const aDate = a.uploadedAt ? new Date(a.uploadedAt) : new Date(0);
+        const bDate = b.uploadedAt ? new Date(b.uploadedAt) : new Date(0);
+        return bDate.getTime() - aDate.getTime();
+      }).slice(0, 5);
+    } else if (activeTab === "secure") {
+      filtered = secureDocuments;
+    }
+    
+    // Then apply the document type filter
+    if (filter) {
+      filtered = filtered.filter(doc => doc.documentType === filter);
+    }
+    
+    return filtered;
   };
   
   const regularDocs = documents.filter(doc => !doc.isSecure);
@@ -80,7 +106,7 @@ const DocumentsPage = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {documents.map((document) => (
+                  {getFilteredDocuments().map((document) => (
                     <DocumentItem 
                       key={document.id} 
                       document={document} 
@@ -96,23 +122,19 @@ const DocumentsPage = () => {
                 <div className="flex justify-center py-12">
                   <div className="text-neutral-500">Loading documents...</div>
                 </div>
-              ) : regularDocs.length === 0 ? (
+              ) : getFilteredDocuments().length === 0 ? (
                 <div className="text-center py-12 text-neutral-500">
-                  No regular documents found.
+                  No documents found in this category.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* Show only the 5 most recent documents */}
-                  {[...regularDocs]
-                    .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
-                    .slice(0, 5)
-                    .map((document) => (
-                      <DocumentItem 
-                        key={document.id} 
-                        document={document} 
-                        onDownload={handleDownload}
-                      />
-                    ))}
+                  {getFilteredDocuments().map((document) => (
+                    <DocumentItem 
+                      key={document.id} 
+                      document={document} 
+                      onDownload={!document.isSecure ? handleDownload : undefined}
+                    />
+                  ))}
                 </div>
               )}
             </TabsContent>
@@ -122,14 +144,17 @@ const DocumentsPage = () => {
                 <div className="flex justify-center py-12">
                   <div className="text-neutral-500">Loading secure documents...</div>
                 </div>
-              ) : secureDocuments.length === 0 ? (
+              ) : getFilteredDocuments().length === 0 ? (
                 <div className="text-center py-12 text-neutral-500">
-                  No secure documents found.
+                  No secure documents found in this category.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {secureDocuments.map((document) => (
-                    <DocumentItem key={document.id} document={document} />
+                  {getFilteredDocuments().map((document) => (
+                    <DocumentItem 
+                      key={document.id} 
+                      document={document} 
+                    />
                   ))}
                 </div>
               )}
@@ -140,42 +165,71 @@ const DocumentsPage = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-neutral-100 rounded-xl shadow-md overflow-hidden">
-          <div className="p-4 border-b border-neutral-200">
+          <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
             <h2 className="font-montserrat font-medium">Document Categories</h2>
+            {filter && (
+              <button 
+                onClick={() => setFilter("")}
+                className="text-xs text-primary hover:text-primary/80 flex items-center"
+              >
+                <i className="fas fa-times-circle mr-1"></i>
+                Clear Filter
+              </button>
+            )}
           </div>
           
           <div className="p-4">
             <div className="grid grid-cols-2 gap-4">
-              <button className="bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center">
+              <button 
+                className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'generic' ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => setFilter('generic')}
+              >
                 <div className="text-4xl text-primary mb-2">
                   <i className="fas fa-file-alt"></i>
                 </div>
                 <div className="font-medium">General</div>
-                <div className="text-xs text-neutral-500">{regularDocs.length} documents</div>
+                <div className="text-xs text-neutral-500">
+                  {documents.filter(doc => doc.documentType === 'generic').length || 0} documents
+                </div>
               </button>
               
-              <button className="bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center">
+              <button 
+                className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'image' ? 'ring-2 ring-accent' : ''}`}
+                onClick={() => setFilter('image')}
+              >
                 <div className="text-4xl text-accent mb-2">
                   <i className="fas fa-file-image"></i>
                 </div>
                 <div className="font-medium">Photos & Media</div>
-                <div className="text-xs text-neutral-500">2 documents</div>
+                <div className="text-xs text-neutral-500">
+                  {documents.filter(doc => doc.documentType === 'image').length || 0} documents
+                </div>
               </button>
               
-              <button className="bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center">
-                <div className="text-4xl text-secondary mb-2">
+              <button 
+                className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'legal' ? 'ring-2 ring-yellow-500' : ''}`}
+                onClick={() => setFilter('legal')}
+              >
+                <div className="text-4xl text-yellow-500 mb-2">
                   <i className="fas fa-file-signature"></i>
                 </div>
                 <div className="font-medium">Legal</div>
-                <div className="text-xs text-neutral-500">2 documents</div>
+                <div className="text-xs text-neutral-500">
+                  {documents.filter(doc => doc.documentType === 'legal').length || 0} documents
+                </div>
               </button>
               
-              <button className="bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center">
-                <div className="text-4xl text-[#F2994A] mb-2">
-                  <i className="fas fa-file-invoice-dollar"></i>
+              <button 
+                className={`bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 p-4 rounded-lg text-center ${filter === 'medical' ? 'ring-2 ring-red-500' : ''}`}
+                onClick={() => setFilter('medical')}
+              >
+                <div className="text-4xl text-red-500 mb-2">
+                  <i className="fas fa-file-medical"></i>
                 </div>
-                <div className="font-medium">Financial</div>
-                <div className="text-xs text-neutral-500">1 document</div>
+                <div className="font-medium">Medical</div>
+                <div className="text-xs text-neutral-500">
+                  {documents.filter(doc => doc.documentType === 'medical').length || 0} documents
+                </div>
               </button>
             </div>
           </div>

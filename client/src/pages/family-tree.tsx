@@ -34,8 +34,9 @@ const FamilyTreePage: React.FC = () => {
     console.log("📦 Raw flat data from API:", familyTreeData);
   }, [familyTreeData]);
 
-  // Make sure we handle undefined data
-  const tree = familyTreeData ? buildFamilyTree(familyTreeData) : [];
+  // Make sure we handle undefined data and correctly process all nodes
+  // Instead of just using root nodes, we'll pass all nodes to the tree visualization
+  const tree = familyTreeData ? familyTreeData : [];
 
   React.useEffect(() => {
     console.log("🌳 Final nested tree (used by TreeCanvas):", tree);
