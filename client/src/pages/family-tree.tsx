@@ -84,6 +84,16 @@ const FamilyTreePage: React.FC = () => {
               Visualize and navigate your family relationships
             </p>
           </div>
+          <button 
+            className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-md flex items-center gap-2 shadow-sm"
+            onClick={() => {
+              // This would usually open a modal or navigate to a form
+              alert("This feature is coming soon!");
+            }}
+          >
+            <i className="fas fa-plus-circle"></i>
+            Add Family Member
+          </button>
           <TreeControls
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
