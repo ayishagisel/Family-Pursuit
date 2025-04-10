@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DocumentItem from "@/components/documents/DocumentItem";
 import { Document } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -8,14 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 const DocumentsPage = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [filter, setFilter] = useState(""); // For document type filtering
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [isSecure, setIsSecure] = useState(false);
+  const [accessLevel, setAccessLevel] = useState("member");
   
   // Fetch documents
   const { data: documents = [], isLoading } = useQuery({
@@ -47,6 +52,87 @@ const DocumentsPage = () => {
         description: `Selected: ${e.target.files[0].name}`,
       });
     }
+  };
+  
+  // Upload document mutation
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      const title = titleInputRef.current?.value || 'Untitled Document';
+      
+      // Determine document type from file extension
+      let documentType = 'generic';
+      if (selectedFile) {
+        const fileName = selectedFile.name.toLowerCase();
+        if (fileName.endsWith('.jpg') || fileName.endsWith('.png') || fileName.endsWith('.gif')) {
+          documentType = 'image';
+        } else if (fileName.endsWith('.pdf')) {
+          documentType = filter || 'generic';
+        } else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
+          documentType = filter || 'generic';
+        }
+      }
+      
+      // Create new document
+      const newDocument = {
+        title,
+        content: selectedFile ? selectedFile.name : 'No content',
+        user_id: 1, // Current user ID
+        documentType,
+        isSecure,
+        accessLevel,
+        permissions: {}
+      };
+      
+      const response = await apiRequest('POST', '/api/documents', newDocument);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
+      if (isSecure) {
+        queryClient.invalidateQueries({ queryKey: ['/api/documents/secure'] });
+      }
+      
+      // Reset form and close dialog
+      setSelectedFile(null);
+      setIsSecure(false);
+      setAccessLevel('member');
+      setIsUploadDialogOpen(false);
+      
+      toast({
+        title: 'Document Uploaded',
+        description: 'Your document has been uploaded successfully.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Upload Failed',
+        description: error instanceof Error ? error.message : 'Failed to upload document',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  const handleUpload = () => {
+    if (!selectedFile) {
+      toast({
+        title: 'No File Selected',
+        description: 'Please select a file to upload.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!titleInputRef.current?.value) {
+      toast({
+        title: 'Missing Title',
+        description: 'Please enter a title for your document.',
+        variant: 'destructive',
+      });
+      titleInputRef.current?.focus();
+      return;
+    }
+    
+    uploadMutation.mutate();
   };
   
   // Filter documents based on tab and document type filter
@@ -327,7 +413,7 @@ const DocumentsPage = () => {
               <Label htmlFor="title" className="text-right">
                 Title
               </Label>
-              <Input id="title" placeholder="Document title" className="col-span-3" />
+              <Input id="title" placeholder="Document title" className="col-span-3" ref={titleInputRef} />
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
@@ -363,7 +449,13 @@ const DocumentsPage = () => {
                 Security
               </Label>
               <div className="flex items-center space-x-2 col-span-3">
-                <input type="checkbox" id="secure-document" className="rounded text-primary focus:ring-primary" />
+                <input 
+                  type="checkbox" 
+                  id="secure-document" 
+                  className="rounded text-primary focus:ring-primary"
+                  checked={isSecure}
+                  onChange={e => setIsSecure(e.target.checked)}
+                />
                 <Label htmlFor="secure-document" className="text-sm">
                   This is a secure document
                 </Label>
@@ -377,6 +469,9 @@ const DocumentsPage = () => {
               <select 
                 id="access-level" 
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 col-span-3"
+                value={accessLevel}
+                onChange={e => setAccessLevel(e.target.value)}
+                disabled={!isSecure}
               >
                 <option value="all">All Family Members</option>
                 <option value="limited">Limited Access</option>
@@ -389,7 +484,12 @@ const DocumentsPage = () => {
             <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
               Cancel
             </Button>
-            <Button>Upload</Button>
+            <Button 
+              onClick={handleUpload}
+              disabled={uploadMutation.isPending || !selectedFile}
+            >
+              {uploadMutation.isPending ? "Uploading..." : "Upload"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
