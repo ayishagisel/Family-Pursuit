@@ -106,7 +106,7 @@ const HelpRequestCard = ({ helpRequest, currentUserId }: HelpRequestCardProps) =
         
         {helpRequest.status !== "completed" && !isCurrentUserVolunteer() && (
           <button
-            className="bg-accent hover:bg-accent/90 text-white text-xs font-medium py-1 px-3 rounded-lg disabled:opacity-50"
+            className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium py-1 px-3 rounded-lg disabled:opacity-50"
             onClick={handleVolunteer}
             disabled={isLoading}
           >
@@ -117,7 +117,7 @@ const HelpRequestCard = ({ helpRequest, currentUserId }: HelpRequestCardProps) =
         )}
         
         {isCurrentUserVolunteer() && (
-          <div className="text-xs text-accent font-medium">
+          <div className="text-xs text-purple-600 font-medium">
             <i className="fas fa-check-circle mr-1"></i>
             Volunteered
           </div>

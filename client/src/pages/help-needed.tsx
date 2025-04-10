@@ -144,7 +144,7 @@ const HelpNeededPage = () => {
         <h1 className="font-montserrat font-bold text-2xl">Help Needed</h1>
         <div className="flex items-center space-x-4">
           <button 
-            className="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg flex items-center"
+            className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg flex items-center"
             onClick={handleAddHelpRequest}
           >
             <i className="fas fa-plus mr-2"></i>
@@ -275,7 +275,7 @@ const HelpNeededPage = () => {
             
             <div className="p-4 border-t border-neutral-200">
               <button 
-                className="w-full text-center text-sm text-primary hover:text-primary/80 font-medium"
+                className="w-full text-center text-sm text-purple-600 hover:text-purple-700 font-medium"
                 onClick={handleAddHelpRequest}
               >
                 Create New Help Request
@@ -354,7 +354,11 @@ const HelpNeededPage = () => {
             <Button variant="outline" onClick={() => setIsAddHelpOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={isSubmitting}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
               {isSubmitting ? (
                 <>
                   <i className="fas fa-spinner fa-spin mr-2"></i>
