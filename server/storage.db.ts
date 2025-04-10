@@ -577,29 +577,10 @@ export class DatabaseStorage implements IStorage {
     // Add parent attribute for hierarchy tree building in the frontend
     Array.from(membersMap.values()).forEach(member => {
       // Set parent property for use in d3 hierarchy generation
-      if (member.parents && member.parents.length > 0) {
+      if (member.parents.length > 0) {
         // Use the first parent as the primary parent for hierarchy
         const primaryParent = member.parents[0];
         member.parent = primaryParent.id;
-        
-        // Also add a direct parent-child reference that's easier for d3 to understand
-        // Find the actual parent object
-        const actualParent = membersMap.get(primaryParent.id);
-        if (actualParent) {
-          // Add this member to the parent's children if not already there
-          const existingChild = actualParent.children.find(child => child.id === member.id);
-          if (!existingChild) {
-            actualParent.children.push({
-              id: member.id,
-              name: member.name,
-              relationship_type: primaryParent.relationship_type,
-              relation_category: primaryParent.relation_category,
-              avatarUrl: member.avatarUrl,
-              birth_date: member.birth_date,
-              role: member.role
-            });
-          }
-        }
       } else {
         member.parent = null;
       }

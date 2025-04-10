@@ -287,16 +287,6 @@ function processHierarchicalData(nodes: any[], visualizationType: VisualizationT
 
 // Create a family hierarchy with proper parent-child relationships
 function createFamilyHierarchy(nodes: any[]) {
-  if (!nodes || nodes.length === 0) {
-    return {
-      id: "root",
-      name: "Family Root",
-      children: []
-    };
-  }
-  
-  console.log("Building hierarchical family tree with", nodes.length, "members");
-  
   // Create an artificial root node for the hierarchy
   const rootNode = {
     id: "root",
@@ -316,44 +306,29 @@ function createFamilyHierarchy(nodes: any[]) {
       generation: node.generation || 0
     };
     nodeMap.set(node.id, processedNode);
-    
-    // Debug logging for generation assignments
-    console.log(`ID: ${node.id} | Name: ${node.name} | Parent ID: ${node.parent || 'null'} | Generation: ${node.generation || 'unknown'}`);
   });
   
-  // First, establish parent-child relationships
+  // Find parents with children and establish the relationships
   nodes.forEach(node => {
+    // Skip already processed nodes
+    if (nodeMap.get(node.id)._processed) return;
+    
     const currentNode = nodeMap.get(node.id);
     
-    // Skip if already fully processed
-    if (currentNode._processed) return;
-    
-    // If node has a parent, establish the relationship
-    if (node.parent) {
-      const parentNode = nodeMap.get(node.parent);
-      if (parentNode) {
-        // Add this node as a child of the parent
-        if (!parentNode.children.some((child: any) => child.id === node.id)) {
-          parentNode.children.push(currentNode);
-        }
-      }
-    }
-    
-    // Process explicit children references
-    if (node.children && Array.isArray(node.children) && node.children.length > 0) {
+    // Process children
+    if (node.children && node.children.length > 0) {
       node.children.forEach((childRef: any) => {
         const childNode = nodeMap.get(childRef.id);
-        if (childNode && !currentNode.children.some((c: any) => c.id === childRef.id)) {
+        if (childNode && !childNode._processed) {
           // Add child to parent's children array
           currentNode.children.push(childNode);
-          
-          // Set parent reference on the child for backward navigation
-          childNode.parent = node.id;
+          // Mark as processed to avoid duplicates
+          childNode._processed = true;
         }
       });
     }
     
-    // Process spouses - add to parent node's special property  
+    // Process spouses - add to parent node's special property
     if (node.spouses && node.spouses.length > 0) {
       currentNode.spouses = [];
       node.spouses.forEach((spouseRef: any) => {
@@ -362,19 +337,9 @@ function createFamilyHierarchy(nodes: any[]) {
           // Store spouse reference
           currentNode.spouses.push(spouseNode);
           
-          // Make first spouse the primary spouse
+          // First spouse is primary
           if (!currentNode.spouse) {
             currentNode.spouse = spouseNode;
-          }
-          
-          // Also establish shared children
-          // Children of either spouse become children of both
-          if (spouseNode.children && spouseNode.children.length > 0) {
-            spouseNode.children.forEach((childNode: any) => {
-              if (!currentNode.children.some((c: any) => c.id === childNode.id)) {
-                currentNode.children.push(childNode);
-              }
-            });
           }
         }
       });
@@ -387,70 +352,25 @@ function createFamilyHierarchy(nodes: any[]) {
   // Find nodes without parents to serve as roots
   const rootNodes = [];
   
-  // Convert entries to array to avoid iterator issues
+  // Converting entries to array to avoid iterator issues
   const nodeEntries = Array.from(nodeMap.entries());
   for (const [id, node] of nodeEntries) {
-    // Determine if this is a root node
-    // Root nodes are either explicitly marked as generation 0/1
-    // or don't have a parent reference
-    const hasParent = node.parent && nodeMap.get(node.parent);
-    const isOldestGeneration = node.generation === 0 || node.generation === 1;
+    // A node is a root if it has no parent or its generation is 0
+    const isRoot = (node.generation === 0 || node.generation === 1) && 
+                  (!node.parent || node.parent === null);
     
-    // Consider a node a root if it has no parent or is in the oldest generation
-    if ((!hasParent) || isOldestGeneration) {
+    if (isRoot) {
       rootNodes.push(node);
     }
   }
   
-  console.log("Found", rootNodes.length, "root nodes in family tree");
-  
-  // For a true family tree, we should have only 1-2 root nodes
-  // If we have too many roots, do some cleanup
-  if (rootNodes.length > 2) {
-    console.warn("Too many root nodes detected, restructuring by generation");
-    
-    // Sort roots by generation and relationship
-    rootNodes.sort((a, b) => {
-      // Prioritize by generation first
-      if (a.generation !== b.generation) {
-        // Treat undefined generations as higher (newer)
-        if (a.generation === undefined) return 1;
-        if (b.generation === undefined) return -1;
-        return a.generation - b.generation;
-      }
-      
-      // Then prioritize by birth date if available
-      if (a.birth_date && b.birth_date) {
-        return new Date(a.birth_date).getTime() - new Date(b.birth_date).getTime();
-      }
-      
-      return 0;
-    });
-    
-    // Use just the first two nodes as true roots
-    rootNode.children = rootNodes.slice(0, 2);
-    
-    // Try to establish parent-child relationships for the remaining "root" nodes
-    // by looking at generation differences
-    const remainingRoots = rootNodes.slice(2);
-    remainingRoots.forEach(node => {
-      // Find an existing root that could be this node's parent
-      const potentialParent = rootNode.children.find((root: any) => {
-        return root.generation < node.generation;
-      });
-      
-      if (potentialParent) {
-        potentialParent.children.push(node);
-      } else {
-        // If we can't find a good parent, add to first root
-        if (rootNode.children.length > 0) {
-          rootNode.children[0].children.push(node);
-        }
-      }
-    });
-  } else {
-    // If we have a reasonable number of root nodes, use them directly
+  // If we found valid roots, add them to the artificial root
+  if (rootNodes.length > 0) {
     rootNode.children = rootNodes;
+  } else {
+    // If no roots were found, use all nodes as roots
+    // This can happen with inconsistent data
+    rootNode.children = Array.from(nodeMap.values());
   }
   
   return rootNode;
@@ -461,31 +381,40 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
   // Convert to d3 hierarchy for layout calculation
   const root = d3Hierarchy.hierarchy(hierarchyRoot);
   
-  // Configure the tree layout with good spacing for family trees
+  // Configure the tree layout for good spacing
   const treeLayout = d3Hierarchy.tree<any>()
-    .nodeSize([150, 100]) // [width, height] spacing between nodes
+    .nodeSize([150, 180]) // [width, height] spacing between nodes
     .separation((a, b) => {
       // Increase separation between different parent subtrees
-      return a.parent === b.parent ? 1.5 : 2.2;
+      return a.parent === b.parent ? 1.2 : 1.8;
     });
   
   // Apply the layout to get positions
   const treeData = treeLayout(root);
   
-  // Collect all descendants into a flat array for positioning
-  const allNodes = treeData.descendants();
-  
   // Convert back to our format with positions
   const positionedNodes: PositionedNode[] = [];
   const processedSpouses = new Set<number>();
   
-  // Process all nodes from the tree (skip the root which is artificial)
-  for (let i = 1; i < allNodes.length; i++) {
-    const node = allNodes[i];
-    if (!node || !node.data) continue;
+  // Process all nodes using d3 hierarchy
+  // Since descendants() might not be directly available in the type definition,
+  // we'll use a manual traversal function
+  function traverseTree(node: any, isRoot = false) {
+    if (!node || !node.data) return;
+    
+    // Skip the artificial root node
+    if (isRoot) {
+      // Process children of root
+      if (node.children) {
+        node.children.forEach((child: any) => traverseTree(child));
+      }
+      return;
+    }
     
     const originalNode = node.data;
-    if (originalNode.id === "root") continue;
+    
+    // Skip the artificial root node
+    if (originalNode.id === "root") return;
     
     // Create a unique key for the node
     const uniqueNodeId = `node-${originalNode.id}`;
@@ -495,10 +424,7 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
       ...originalNode,
       x: node.x || 0,      // d3 tree layout uses x for horizontal position
       y: node.y || 0,      // and y for vertical position
-      _uniqueKey: uniqueNodeId,
-      // Preserve relationship type information
-      type: originalNode.relationship_type || originalNode.type,
-      relation_category: originalNode.relation_category
+      _uniqueKey: uniqueNodeId
     });
     
     // Handle spouse positioning side-by-side
@@ -515,7 +441,15 @@ function applyHierarchicalLayout(hierarchyRoot: any) {
       // Mark the spouse as processed to avoid duplicates
       processedSpouses.add(originalNode.spouse.id);
     }
+    
+    // Recursively process children
+    if (node.children) {
+      node.children.forEach((child: any) => traverseTree(child));
+    }
   }
+  
+  // Start traversal from the root
+  traverseTree(treeData, true);
   
   return positionedNodes;
 }
