@@ -302,10 +302,14 @@ function processHierarchicalData(nodes: any[], visualizationType: VisualizationT
   
   // Apply the appropriate layout algorithm based on visualization type
   let positionedNodes: PositionedNode[] = [];
+  
+  // Log all nodes for debugging
+  console.log("🌳 Processing", nodes.length, "nodes:", nodes.map(n => `${n.id}: ${n.name}`).join(", "));
+  
   switch (visualizationType) {
     case "hierarchical":
       // For hierarchical, use either the generation data from the API or calculate it
-      if (nodes[0]?.generation !== undefined) {
+      if (nodes.length > 0 && nodes[0]?.generation !== undefined) {
         // If the API provides generation data, use it directly
         console.log("Using generation data from API");
         positionedNodes = applyGenerationBasedLayout(nodes);
@@ -771,15 +775,22 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
   positionedNodes.forEach(node => {
     nodeMap.set(node.id, node);
   });
+
+  console.log(`Processing relationships for ${positionedNodes.length} positioned nodes from ${originalNodes.length} original nodes`);
   
   // Process the original nodes to extract relationship data
   originalNodes.forEach(node => {
     const sourceNode = nodeMap.get(node.id);
-    if (!sourceNode) return;
+    if (!sourceNode) {
+      console.log(`Node ${node.id} (${node.name}) not found in positioned nodes`);
+      return;
+    }
     
     // 1. Spouse relationships (horizontal connections)
-    if (node.spouses && node.spouses.length > 0) {
+    if (node.spouses && Array.isArray(node.spouses) && node.spouses.length > 0) {
       node.spouses.forEach((spouseRef: any) => {
+        if (!spouseRef || !spouseRef.id) return;
+        
         const targetNode = nodeMap.get(spouseRef.id);
         if (targetNode) {
           // Create a unique ID for this relationship to avoid duplicates
@@ -793,14 +804,18 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
             });
             processedRelationships.add(relationshipId);
           }
+        } else {
+          console.log(`Spouse ${spouseRef.id} for ${node.id} (${node.name}) not found in positioned nodes`);
         }
       });
     }
     
     // 2. Parent-child relationships (vertical connections)
     // 2a. Check the 'children' array
-    if (node.children && node.children.length > 0) {
+    if (node.children && Array.isArray(node.children) && node.children.length > 0) {
       node.children.forEach((childRef: any) => {
+        if (!childRef || !childRef.id) return;
+        
         const targetNode = nodeMap.get(childRef.id);
         if (targetNode) {
           const relationshipId = `parent-child-${sourceNode.id}-${targetNode.id}`;
@@ -813,13 +828,17 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
             });
             processedRelationships.add(relationshipId);
           }
+        } else {
+          console.log(`Child ${childRef.id} for ${node.id} (${node.name}) not found in positioned nodes`);
         }
       });
     }
     
     // 2b. Also check the 'parents' array to create parent-child connections
-    if (node.parents && node.parents.length > 0) {
+    if (node.parents && Array.isArray(node.parents) && node.parents.length > 0) {
       node.parents.forEach((parentRef: any) => {
+        if (!parentRef || !parentRef.id) return;
+        
         const parentNode = nodeMap.get(parentRef.id);
         if (parentNode) {
           const relationshipId = `parent-child-${parentNode.id}-${sourceNode.id}`;
@@ -832,13 +851,17 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
             });
             processedRelationships.add(relationshipId);
           }
+        } else {
+          console.log(`Parent ${parentRef.id} for ${node.id} (${node.name}) not found in positioned nodes`);
         }
       });
     }
     
     // 3. Sibling relationships
-    if (node.siblings && node.siblings.length > 0) {
+    if (node.siblings && Array.isArray(node.siblings) && node.siblings.length > 0) {
       node.siblings.forEach((siblingRef: any) => {
+        if (!siblingRef || !siblingRef.id) return;
+        
         const targetNode = nodeMap.get(siblingRef.id);
         if (targetNode) {
           const relationshipId = `sibling-${Math.min(sourceNode.id, targetNode.id)}-${Math.max(sourceNode.id, targetNode.id)}`;
@@ -851,13 +874,17 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
             });
             processedRelationships.add(relationshipId);
           }
+        } else {
+          console.log(`Sibling ${siblingRef.id} for ${node.id} (${node.name}) not found in positioned nodes`);
         }
       });
     }
     
     // 4. Extended family relationships
-    if (node.extended && node.extended.length > 0) {
+    if (node.extended && Array.isArray(node.extended) && node.extended.length > 0) {
       node.extended.forEach((extendedRef: any) => {
+        if (!extendedRef || !extendedRef.id) return;
+        
         const targetNode = nodeMap.get(extendedRef.id);
         if (targetNode) {
           const relationshipId = `extended-${sourceNode.id}-${targetNode.id}`;
@@ -870,6 +897,8 @@ function extractRelationships(positionedNodes: PositionedNode[], originalNodes: 
             });
             processedRelationships.add(relationshipId);
           }
+        } else {
+          console.log(`Extended family ${extendedRef.id} for ${node.id} (${node.name}) not found in positioned nodes`);
         }
       });
     }
