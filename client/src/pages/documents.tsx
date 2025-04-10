@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DocumentItem from "@/components/documents/DocumentItem";
 import { Document } from "@shared/schema";
@@ -14,6 +14,8 @@ const DocumentsPage = () => {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [filter, setFilter] = useState(""); // For document type filtering
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Fetch documents
   const { data: documents = [], isLoading } = useQuery({
@@ -35,6 +37,16 @@ const DocumentsPage = () => {
       title: "Download Started",
       description: `Downloading ${document.title}...`,
     });
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+      toast({
+        title: "File Selected",
+        description: `Selected: ${e.target.files[0].name}`,
+      });
+    }
   };
   
   // Filter documents based on tab and document type filter
@@ -326,10 +338,22 @@ const DocumentsPage = () => {
                 <div className="border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-lg p-6 text-center">
                   <i className="fas fa-cloud-upload-alt text-3xl text-neutral-400 mb-2"></i>
                   <p className="text-sm text-neutral-500">Drag files here or click to browse</p>
-                  <input type="file" className="hidden" id="file-upload" />
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    id="file-upload" 
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
                   <label htmlFor="file-upload" className="mt-2 inline-block bg-primary hover:bg-primary/90 text-white text-sm font-medium py-1 px-3 rounded-lg cursor-pointer">
                     Select File
                   </label>
+                  {selectedFile && (
+                    <p className="mt-2 text-sm text-green-600">
+                      <i className="fas fa-check-circle mr-1"></i>
+                      {selectedFile.name}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
