@@ -779,6 +779,70 @@ export class DatabaseStorage implements IStorage {
         return "related-to";
     }
   }
+
+  // Housing Issues methods
+  async getHousingIssue(id: number): Promise<HousingIssue | undefined> {
+    logOperation("READ", "housing_issue", { id });
+    const results = await db.select().from(housingIssues).where(eq(housingIssues.id, id));
+    return results[0];
+  }
+
+  async getAllHousingIssues(): Promise<HousingIssue[]> {
+    logOperation("READ", "housing_issues", { count: "all" });
+    return await db.select().from(housingIssues);
+  }
+
+  async getHousingIssuesByMember(memberId: number): Promise<HousingIssue[]> {
+    logOperation("READ", "housing_issues_by_member", { memberId });
+    return await db
+      .select()
+      .from(housingIssues)
+      .where(eq(housingIssues.family_member_id, memberId));
+  }
+
+  async createHousingIssue(issue: InsertHousingIssue): Promise<HousingIssue> {
+    logOperation("CREATE", "housing_issue", issue);
+    const results = await db.insert(housingIssues).values(issue).returning();
+    return results[0];
+  }
+
+  async updateHousingIssue(id: number, issue: Partial<InsertHousingIssue>): Promise<HousingIssue | undefined> {
+    logOperation("UPDATE", "housing_issue", { id, ...issue });
+    const results = await db
+      .update(housingIssues)
+      .set(issue)
+      .where(eq(housingIssues.id, id))
+      .returning();
+    return results[0];
+  }
+
+  async deleteHousingIssue(id: number): Promise<boolean> {
+    logOperation("DELETE", "housing_issue", { id });
+    const results = await db.delete(housingIssues).where(eq(housingIssues.id, id)).returning();
+    return results.length > 0;
+  }
+
+  async checkHPDViolations(address: string): Promise<any[]> {
+    logOperation("READ", "hpd_violations", { address });
+    // This would be the real implementation that would fetch data from an external API
+    // For now, returning mock data for demonstration purposes
+    return [
+      {
+        violationId: "HPD-2023-001",
+        category: "Class C",
+        description: "Inadequate supply of heat/hot water",
+        status: "Open",
+        issueDate: "2023-10-15"
+      },
+      {
+        violationId: "HPD-2023-002",
+        category: "Class B",
+        description: "Peeling lead paint",
+        status: "Open",
+        issueDate: "2023-11-03"
+      }
+    ];
+  }
 }
 
 export const getFamilyTree = async () => {
