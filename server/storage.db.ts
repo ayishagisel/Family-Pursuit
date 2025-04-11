@@ -20,6 +20,9 @@ import {
   messages,
   type Message,
   type InsertMessage,
+  housingIssues,
+  type HousingIssue,
+  type InsertHousingIssue,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, gte, and, or, sql } from "drizzle-orm";
