@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import landingImage from '../assets/landing-page.png';
 
 import {
   Form,
@@ -34,6 +35,8 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [animationStage, setAnimationStage] = useState<'normal' | 'text-fading' | 'tree-only' | 'transitioning'>('normal');
 
   // Initialize form
   const form = useForm<LoginValues>({
@@ -44,6 +47,37 @@ export default function LoginPage() {
     },
   });
 
+  // Animation effect when login is successful
+  useEffect(() => {
+    if (loginSuccess) {
+      // Start animation sequence
+      const animationSequence = [
+        { stage: 'text-fading', delay: 1000 },
+        { stage: 'tree-only', delay: 2500 },
+        { stage: 'transitioning', delay: 4000 }
+      ];
+      
+      let timers: NodeJS.Timeout[] = [];
+      
+      animationSequence.forEach((step) => {
+        const timer = setTimeout(() => {
+          setAnimationStage(step.stage as any);
+          
+          // Navigate to family tree at the end of animation
+          if (step.stage === 'transitioning') {
+            setLocation('/');
+          }
+        }, step.delay);
+        
+        timers.push(timer);
+      });
+      
+      return () => {
+        timers.forEach(t => clearTimeout(t));
+      };
+    }
+  }, [loginSuccess, setLocation]);
+
   // Handle form submission
   const onSubmit = async (values: LoginValues) => {
     setIsLoading(true);
@@ -51,92 +85,146 @@ export default function LoginPage() {
     
     try {
       await login(values);
+      
+      // Instead of immediately redirecting, set successful login state
+      // to trigger animation sequence
+      setLoginSuccess(true);
+      
       toast({
         title: 'Login successful',
         description: 'Welcome back to Family Pursuit!',
       });
-      setLocation('/');
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'Failed to login. Please check your credentials.');
-    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Login to Family Pursuit</CardTitle>
-          <CardDescription className="text-center">
-            Enter your credentials to access your family network
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          <Alert variant="default" className="mb-4 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-            <InfoIcon className="h-4 w-4" />
-            <AlertTitle>Default Login</AlertTitle>
-            <AlertDescription>
-              <p>Use these credentials to log in:</p>
-              <ul className="list-disc pl-5 mt-1 text-sm">
-                <li><strong>Username:</strong> admin</li>
-                <li><strong>Password:</strong> password123</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter your username" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Enter your password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <div className="text-sm text-center">
-            Don't have an account?{' '}
-            <Button variant="link" className="p-0" onClick={() => setLocation('/register')}>
-              Register here
-            </Button>
+    <div className="min-h-screen flex items-center justify-center bg-black">
+      {/* Animation overlay for the login page */}
+      {loginSuccess && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className={`relative transition-all duration-1000 ease-in-out transform ${animationStage === 'tree-only' ? 'scale-110' : 'scale-100'}`}>
+            <img 
+              src={landingImage} 
+              alt="Family Pursuit" 
+              className="max-w-full max-h-screen object-contain"
+            />
+            
+            {/* Text fading overlay */}
+            <div 
+              className={`absolute inset-0 bg-black transition-opacity duration-1000 pointer-events-none ${
+                animationStage === 'normal' ? 'opacity-0' : animationStage === 'text-fading' ? 'opacity-50' : 'opacity-0'
+              }`}
+            />
+            
+            {/* Tree highlight overlay */}
+            <div 
+              className={`absolute inset-0 bg-gradient-to-t from-black via-black to-black transition-opacity duration-1500 pointer-events-none ${
+                animationStage === 'tree-only' ? 'opacity-80' : 'opacity-0'
+              }`}
+            />
+            
+            {/* Full fade out overlay */}
+            <div 
+              className={`absolute inset-0 bg-black transition-opacity duration-1000 pointer-events-none ${
+                animationStage === 'transitioning' ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      )}
+      
+      {/* Two column layout with image and login form */}
+      <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-center min-h-screen">
+        {/* Left column - Family Pursuit image */}
+        <div className="w-full lg:w-1/2 flex justify-center mb-8 lg:mb-0">
+          <div className="relative max-w-md">
+            <img 
+              src={landingImage} 
+              alt="Family Pursuit" 
+              className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-xl"
+            />
+          </div>
+        </div>
+        
+        {/* Right column - Login form */}
+        <div className="w-full lg:w-1/2 flex justify-center lg:pl-8">
+          <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-center">Login to Family Pursuit</CardTitle>
+              <CardDescription className="text-center">
+                Enter your credentials to discover your family network
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              
+              <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200">
+                <InfoIcon className="h-4 w-4" />
+                <AlertTitle>Default Login</AlertTitle>
+                <AlertDescription>
+                  <p>Use these credentials to log in:</p>
+                  <ul className="list-disc pl-5 mt-1 text-sm">
+                    <li><strong>Username:</strong> admin</li>
+                    <li><strong>Password:</strong> password123</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Enter your password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" className="w-full" disabled={isLoading || loginSuccess}>
+                    {isLoading ? 'Logging in...' : loginSuccess ? 'Preparing your family tree...' : 'Login'}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-4">
+              <div className="text-sm text-center">
+                Don't have an account?{' '}
+                <Button variant="link" className="p-0" onClick={() => setLocation('/register')}>
+                  Register here
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
