@@ -34,6 +34,12 @@ const DocumentsPage = () => {
   });
   
   const handleUploadClick = () => {
+    // If a filter is active, use it as the initial document type in the upload dialog
+    if (filter) {
+      setDocumentType(filter);
+    } else {
+      setDocumentType('generic');
+    }
     setIsUploadDialogOpen(true);
   };
   
