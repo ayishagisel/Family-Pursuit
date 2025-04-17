@@ -149,10 +149,9 @@ export default function LoginPage() {
       
       {/* Login form overlay - horizontal layout positioned at bottom */}
       <div className="relative z-10 w-full flex flex-col justify-between min-h-screen pb-10">
-        {/* Top section with title */}
+        {/* Top section with tagline only */}
         <div className="text-white text-center mt-10 px-4">
-          <h1 className="text-5xl font-bold mb-2">Family Pursuit</h1>
-          <p className="text-xl opacity-90">Connect with your roots, build your legacy</p>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold opacity-90">Connect with your roots, build your legacy</h2>
         </div>
         
         {/* Bottom section with login box */}
