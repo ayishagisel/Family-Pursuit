@@ -21,6 +21,7 @@ const DocumentsPage = () => {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isSecure, setIsSecure] = useState(false);
   const [accessLevel, setAccessLevel] = useState("member");
+  const [documentType, setDocumentType] = useState("generic");
   
   // Fetch documents
   const { data: documents = [], isLoading } = useQuery({
@@ -59,22 +60,12 @@ const DocumentsPage = () => {
     mutationFn: async () => {
       const title = titleInputRef.current?.value || 'Untitled Document';
       
-      // Determine document type from file extension and security settings
-      let documentType = 'generic';
-      if (selectedFile) {
-        const fileName = selectedFile.name.toLowerCase();
-        if (fileName.endsWith('.jpg') || fileName.endsWith('.png') || fileName.endsWith('.gif')) {
-          documentType = 'image';
-        } else if (fileName.endsWith('.pdf')) {
-          documentType = filter || 'generic';
-        } else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
-          documentType = filter || 'generic';
-        }
-        
-        // Encode security info in documentType if secure
-        if (isSecure) {
-          documentType = `${documentType}_secure_${accessLevel}`;
-        }
+      // Use the selected document type from the dropdown and security settings
+      let docType = documentType; // Use the selected document type
+      
+      // Encode security info in documentType if secure
+      if (isSecure) {
+        docType = `${docType}_secure_${accessLevel}`;
       }
       
       // Create new document
@@ -82,7 +73,7 @@ const DocumentsPage = () => {
         title,
         content: selectedFile ? selectedFile.name : 'No content',
         user_id: 1, // Current user ID
-        documentType,
+        documentType: docType,
         // These fields aren't in the actual schema - workaround:
         // We'll use document_type field to encode security info
         // Format: isSecure ? documentType + "_secure_" + accessLevel : documentType
@@ -102,6 +93,7 @@ const DocumentsPage = () => {
       setSelectedFile(null);
       setIsSecure(false);
       setAccessLevel('member');
+      setDocumentType('generic');
       setIsUploadDialogOpen(false);
       
       toast({
@@ -466,6 +458,25 @@ const DocumentsPage = () => {
                   This is a secure document
                 </Label>
               </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="document-type" className="text-right">
+                Document Type
+              </Label>
+              <select 
+                id="document-type" 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 col-span-3"
+                value={documentType}
+                onChange={e => setDocumentType(e.target.value)}
+              >
+                <option value="generic">General</option>
+                <option value="image">Photos & Media</option>
+                <option value="legal">Legal</option>
+                <option value="financial">Financial</option>
+                <option value="medical">Medical</option>
+                <option value="intellectual">Intellectual</option>
+              </select>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
