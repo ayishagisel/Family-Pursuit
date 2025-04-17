@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import MainLayout from "@/components/layout/MainLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { useState, useEffect } from "react";
 
 // Pages
 import FamilyTreePage from "@/pages/family-tree";
@@ -17,6 +18,7 @@ import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import UnauthorizedPage from "@/pages/unauthorized";
 import NotFound from "@/pages/not-found";
+import LandingPage from "@/pages/landing-page";
 import "./styles.css";
 
 function Router() {
@@ -54,9 +56,27 @@ function Router() {
 }
 
 function App() {
+  const [showLanding, setShowLanding] = useState(true);
+  
+  // Check if the user has already seen the landing page
+  useEffect(() => {
+    // For testing purposes, always remove the flag (can be changed to persist once tested)
+    localStorage.removeItem('hasSeenLanding');
+    const hasSeenLanding = localStorage.getItem('hasSeenLanding');
+    
+    // Skip landing page if the URL has parameters or the landing has been seen in this session
+    if (window.location.search || window.location.hash || hasSeenLanding) {
+      setShowLanding(false);
+    } else {
+      // Set the flag for future visits
+      localStorage.setItem('hasSeenLanding', 'true');
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        {showLanding ? <LandingPage /> : null}
         <Router />
         <Toaster />
       </AuthProvider>
