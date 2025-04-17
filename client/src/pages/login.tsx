@@ -137,93 +137,94 @@ export default function LoginPage() {
         </div>
       )}
       
-      {/* Two column layout with image and login form */}
-      <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-center min-h-screen">
-        {/* Left column - Family Pursuit image */}
-        <div className="w-full lg:w-1/2 flex justify-center mb-8 lg:mb-0">
-          <div className="relative max-w-md">
-            <img 
-              src={landingImage} 
-              alt="Family Pursuit" 
-              className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-xl"
-            />
-          </div>
+      {/* Full screen version of the landing page image */}
+      <div className="fixed inset-0 z-0">
+        <img 
+          src={landingImage} 
+          alt="Family Pursuit Background" 
+          className="w-full h-full object-cover opacity-90"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+      </div>
+      
+      {/* Login form overlay */}
+      <div className="relative z-10 w-full max-w-md mx-auto px-4">
+        <div className="text-white text-center mb-6">
+          <h1 className="text-4xl font-bold mb-2">Family Pursuit</h1>
+          <p className="text-lg opacity-90">Connect with your roots, build your legacy</p>
         </div>
         
-        {/* Right column - Login form */}
-        <div className="w-full lg:w-1/2 flex justify-center lg:pl-8">
-          <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-2xl">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-center">Login to Family Pursuit</CardTitle>
-              <CardDescription className="text-center">
-                Enter your credentials to discover your family network
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200">
-                <InfoIcon className="h-4 w-4" />
-                <AlertTitle>Default Login</AlertTitle>
-                <AlertDescription>
-                  <p>Use these credentials to log in:</p>
-                  <ul className="list-disc pl-5 mt-1 text-sm">
-                    <li><strong>Username:</strong> admin</li>
-                    <li><strong>Password:</strong> password123</li>
-                  </ul>
-                </AlertDescription>
+        <Card className="w-full bg-white/90 backdrop-blur-sm shadow-2xl border-0">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
+            <CardDescription className="text-center">
+              Enter your credentials to discover your family
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
-              
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your username" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Enter your password" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading || loginSuccess}>
-                    {isLoading ? 'Logging in...' : loginSuccess ? 'Preparing your family tree...' : 'Login'}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-              <div className="text-sm text-center">
-                Don't have an account?{' '}
-                <Button variant="link" className="p-0" onClick={() => setLocation('/register')}>
-                  Register here
+            )}
+            
+            <Alert variant="default" className="mb-4 bg-blue-50 border-blue-200">
+              <InfoIcon className="h-4 w-4" />
+              <AlertTitle>Default Login</AlertTitle>
+              <AlertDescription>
+                <p>Use these credentials to log in:</p>
+                <ul className="list-disc pl-5 mt-1 text-sm">
+                  <li><strong>Username:</strong> admin</li>
+                  <li><strong>Password:</strong> password123</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your username" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Enter your password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button type="submit" className="w-full" disabled={isLoading || loginSuccess}>
+                  {isLoading ? 'Logging in...' : loginSuccess ? 'Preparing your family tree...' : 'Login'}
                 </Button>
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <div className="text-sm text-center">
+              Don't have an account?{' '}
+              <Button variant="link" className="p-0" onClick={() => setLocation('/register')}>
+                Register here
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );
