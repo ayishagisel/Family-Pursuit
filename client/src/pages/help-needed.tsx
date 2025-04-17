@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,19 @@ const HelpNeededPage = () => {
     timeNeeded: ""
   });
   
+  // Define types for help requests
+  interface HelpRequest {
+    id: number;
+    title: string;
+    description: string;
+    dateNeeded: string;
+    status: string;
+    requestedBy: number;
+    volunteers?: number[];
+  }
+
   // Fetch help requests
-  const { data: helpRequests = [], isLoading } = useQuery({
+  const { data: helpRequests = [], isLoading } = useQuery<HelpRequest[]>({
     queryKey: ["/api/help-requests"],
   });
   
@@ -32,10 +44,10 @@ const HelpNeededPage = () => {
   };
   
   // Get active help requests (not completed)
-  const activeRequests = helpRequests.filter(request => request.status !== "completed");
+  const activeRequests = helpRequests.filter((request: HelpRequest) => request.status !== "completed");
   
   // Get completed help requests
-  const completedRequests = helpRequests.filter(request => request.status === "completed");
+  const completedRequests = helpRequests.filter((request: HelpRequest) => request.status === "completed");
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -270,6 +282,19 @@ const HelpNeededPage = () => {
                   <i className="fas fa-lightbulb text-[#F2994A] mr-1"></i>
                   Thank volunteers after they've helped out!
                 </div>
+              </div>
+              
+              <div className="mt-6">
+                <h3 className="text-sm font-medium mb-2">Housing Issues</h3>
+                <div className="text-xs text-neutral-600 dark:text-neutral-400 mb-3">
+                  Report, track, and manage housing-related issues for your family.
+                </div>
+                <Link href="/housing-issues">
+                  <button className="w-full bg-orange-100 hover:bg-orange-200 text-orange-800 font-medium py-2 px-4 rounded-lg text-sm flex items-center justify-center">
+                    <i className="fas fa-home mr-2"></i>
+                    <span>Manage Housing Issues</span>
+                  </button>
+                </Link>
               </div>
             </div>
             

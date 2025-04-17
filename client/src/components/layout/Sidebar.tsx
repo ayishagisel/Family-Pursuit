@@ -59,11 +59,6 @@ const Sidebar = () => {
             <span>Help Needed</span>
           </Link>
           
-          <Link href="/housing-issues" className={`flex items-center p-2 rounded-lg ${isActive('/housing-issues') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
-            <i className="fas fa-home w-6"></i>
-            <span>Housing Issues</span>
-          </Link>
-          
           <Link href="/messages" className={`flex items-center p-2 rounded-lg ${isActive('/messages') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
             <i className="fas fa-comments w-6"></i>
             <span>Messages</span>
