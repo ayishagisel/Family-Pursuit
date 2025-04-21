@@ -26,59 +26,84 @@ const Sidebar = () => {
         <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
           <i className="fas fa-users text-primary"></i>
         </div>
-        <h1 className="font-montserrat font-bold text-xl">Pursuit Family</h1>
+        <h1 className="font-montserrat font-bold text-xl">Family Pursuit</h1>
       </div>
-      
+
       <div className="flex md:hidden justify-end mb-4">
         <button onClick={toggleMobileMenu} className="text-white">
-          <i className={`fas ${isMobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
+          <i className={`fas ${isMobileMenuOpen ? "fa-times" : "fa-bars"}`}></i>
         </button>
       </div>
-      
-      <div className={`${isMobileMenuOpen ? 'block' : 'hidden'} md:block`}>
+
+      <div className={`${isMobileMenuOpen ? "block" : "hidden"} md:block`}>
         <div className="space-y-4">
-          <div className="font-medium text-sm uppercase text-accent/80 mb-2">MAIN</div>
-          
-          <Link href="/" className={`flex items-center p-2 rounded-lg ${isActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+          <div className="font-medium text-sm uppercase text-accent/80 mb-2">
+            MAIN
+          </div>
+
+          <Link
+            href="/"
+            className={`flex items-center p-2 rounded-lg ${isActive("/") ? "bg-white/10 text-white" : "hover:bg-white/10 text-white/80 hover:text-white"}`}
+          >
             <i className="fas fa-sitemap w-6"></i>
             <span>Family Tree</span>
           </Link>
-          
-          <Link href="/events" className={`flex items-center p-2 rounded-lg ${isActive('/events') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+
+          <Link
+            href="/events"
+            className={`flex items-center p-2 rounded-lg ${isActive("/events") ? "bg-white/10 text-white" : "hover:bg-white/10 text-white/80 hover:text-white"}`}
+          >
             <i className="fas fa-calendar-alt w-6"></i>
             <span>Events</span>
           </Link>
-          
-          <Link href="/documents" className={`flex items-center p-2 rounded-lg ${isActive('/documents') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+
+          <Link
+            href="/documents"
+            className={`flex items-center p-2 rounded-lg ${isActive("/documents") ? "bg-white/10 text-white" : "hover:bg-white/10 text-white/80 hover:text-white"}`}
+          >
             <i className="fas fa-file-alt w-6"></i>
             <span>Documents</span>
           </Link>
-          
-          <Link href="/help-needed" className={`flex items-center p-2 rounded-lg ${isActive('/help-needed') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+
+          <Link
+            href="/help-needed"
+            className={`flex items-center p-2 rounded-lg ${isActive("/help-needed") ? "bg-white/10 text-white" : "hover:bg-white/10 text-white/80 hover:text-white"}`}
+          >
             <i className="fas fa-hands-helping w-6"></i>
             <span>Help Needed</span>
           </Link>
-          
-          <Link href="/messages" className={`flex items-center p-2 rounded-lg ${isActive('/messages') ? 'bg-white/10 text-white' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}>
+
+          <Link
+            href="/messages"
+            className={`flex items-center p-2 rounded-lg ${isActive("/messages") ? "bg-white/10 text-white" : "hover:bg-white/10 text-white/80 hover:text-white"}`}
+          >
             <i className="fas fa-comments w-6"></i>
             <span>Messages</span>
           </Link>
         </div>
-        
+
         <div className="mt-8">
-          <div className="font-medium text-sm uppercase text-accent/80 mb-2">SETTINGS</div>
-          
-          <a href="#" className="flex items-center p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white">
+          <div className="font-medium text-sm uppercase text-accent/80 mb-2">
+            SETTINGS
+          </div>
+
+          <a
+            href="#"
+            className="flex items-center p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white"
+          >
             <i className="fas fa-cog w-6"></i>
             <span>Preferences</span>
           </a>
-          
-          <a href="#" className="flex items-center p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white">
+
+          <a
+            href="#"
+            className="flex items-center p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white"
+          >
             <i className="fas fa-shield-alt w-6"></i>
             <span>Privacy</span>
           </a>
-          
-          <div 
+
+          <div
             className="flex items-center p-2 rounded-lg hover:bg-white/10 text-white/80 hover:text-white cursor-pointer"
             onClick={toggleDarkMode}
           >
@@ -86,9 +111,9 @@ const Sidebar = () => {
             <span>Dark Mode</span>
             <div className="ml-auto">
               <div className="w-10 h-5 bg-white/30 rounded-full flex items-center p-0.5">
-                <div 
+                <div
                   className={`w-4 h-4 bg-white rounded-full transform transition-transform ${
-                    isDarkMode ? 'translate-x-5' : 'translate-x-0'
+                    isDarkMode ? "translate-x-5" : "translate-x-0"
                   }`}
                 ></div>
               </div>
@@ -96,12 +121,12 @@ const Sidebar = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="mt-auto pt-6 border-t border-white/10">
         <div className="flex items-center p-2">
-          <img 
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" 
-            alt="Profile" 
+          <img
+            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
+            alt="Profile"
             className="w-8 h-8 rounded-full"
           />
           <div className="ml-2">
