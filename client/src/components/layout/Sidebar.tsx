@@ -23,9 +23,7 @@ const Sidebar = () => {
   return (
     <nav className="md:w-64 bg-primary dark:bg-neutral-800 text-white p-4 flex flex-col">
       <div className="flex items-center space-x-2 mb-8">
-        <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
-          <i className="fas fa-users text-primary"></i>
-        </div>
+        <img src="/src/assets/logo.png" alt="Logo" className="h-10 w-10 rounded-full object-cover" />
         <h1 className="font-montserrat font-bold text-xl">Family Pursuit</h1>
       </div>
 
