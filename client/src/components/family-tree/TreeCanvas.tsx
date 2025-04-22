@@ -5,7 +5,7 @@ import { FamilyMember } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 import * as d3Hierarchy from "d3-hierarchy";
 
-import { getAncestors, getDescendants } from "../../lib/treeUtils";
+import { getAncestors, getDescendants } from "../lib/treeUtils";
 
 type VisualizationType =
   | "hierarchical"
