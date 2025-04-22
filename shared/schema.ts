@@ -1,8 +1,18 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User schema
+/*----------------------------------
+  USERS
+----------------------------------*/
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -32,13 +42,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-// Family Member schema
+/*----------------------------------
+  FAMILY MEMBERS
+----------------------------------*/
 export const familyMembers = pgTable("family_members", {
   id: serial("id").primaryKey(),
   user_id: integer("user_id"),
   name: text("name").notNull(),
-  role: text("role").notNull(),
-  relationship: text("relationship").notNull(), // "biological", "adoptive", "step"
+  role: text("role").notNull(), // Inclusive: parent, co-parent, guardian, step-parent, etc.
+  relationship: text("relationship").notNull(), // "biological", "adoptive", "step", "chosen", "common-law", "polygamous", etc.
   avatarUrl: text("avatar_url"),
   birth_date: timestamp("birth_date"),
   location: text("location"),
@@ -46,7 +58,7 @@ export const familyMembers = pgTable("family_members", {
   personality_traits: text("personality_traits").array(),
   interests: text("interests").array(),
   occupation: text("occupation"),
-  metadata: jsonb("metadata").default("{}"),
+  metadata: jsonb("metadata").default("{}"), // for storing dynamic tags, pronouns, etc.
 });
 
 export const insertFamilyMemberSchema = createInsertSchema(familyMembers).pick({
@@ -67,29 +79,39 @@ export const insertFamilyMemberSchema = createInsertSchema(familyMembers).pick({
 export type InsertFamilyMember = z.infer<typeof insertFamilyMemberSchema>;
 export type FamilyMember = typeof familyMembers.$inferSelect;
 
-// Relationship schema
+/*----------------------------------
+  RELATIONSHIPS
+----------------------------------*/
 export const relationships = pgTable("relationships", {
   id: serial("id").primaryKey(),
   source_id: integer("source_id").notNull(),
   target_id: integer("target_id").notNull(),
-  relationship_type: text("relationship_type").notNull(), 
-  // Supported values: "parent", "child", "spouse", "sibling", "guardian", "adoptive", "step", "half-sibling", etc.
-  relation_category: text("relation_category").default("biological"), // "biological", "adoptive", "step"
+  relationship_type: text("relationship_type").notNull(),
+  // "parent", "spouse", "co-parent", "common-law", "guardian", "platonic-partner", etc.
+  relation_category: text("relation_category").default("biological"),
+  // "biological", "adoptive", "step", "chosen", "multi-parent", etc.
   notes: text("notes"),
 });
 
-export const insertRelationshipSchema = createInsertSchema(relationships).pick({
-  source_id: true,
-  target_id: true,
-  relationship_type: true,
-  relation_category: true,
-  notes: true,
-});
+export const insertRelationshipSchema = createInsertSchema(relationships)
+  .pick({
+    source_id: true,
+    target_id: true,
+    relationship_type: true,
+    relation_category: true,
+    notes: true,
+  })
+  .refine((data) => data.source_id !== data.target_id, {
+    message: "A member cannot be related to themselves",
+    path: ["target_id"],
+  });
 
 export type InsertRelationship = z.infer<typeof insertRelationshipSchema>;
 export type Relationship = typeof relationships.$inferSelect;
 
-// Event schema
+/*----------------------------------
+  EVENTS
+----------------------------------*/
 export const events = pgTable("events", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -98,7 +120,7 @@ export const events = pgTable("events", {
   location: text("location"),
   user_id: integer("user_id").notNull(),
   attendees: jsonb("attendees").notNull().default("[]"),
-  eventType: text("event_type").notNull(), // "birthday", "reunion", "graduation", etc.
+  eventType: text("event_type").notNull(), // birthday, reunion, celebration, etc.
 });
 
 export const insertEventSchema = createInsertSchema(events).pick({
@@ -113,7 +135,9 @@ export const insertEventSchema = createInsertSchema(events).pick({
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 
-// Document schema
+/*----------------------------------
+  DOCUMENTS
+----------------------------------*/
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -121,7 +145,7 @@ export const documents = pgTable("documents", {
   user_id: integer("user_id").notNull(),
   created_at: timestamp("created_at").notNull().defaultNow(),
   permissions: jsonb("permissions").default("{}"),
-  documentType: text("document_type").notNull().default("generic"), // "pdf", "image", "contract", etc.
+  documentType: text("document_type").notNull().default("generic"),
   isSecure: boolean("is_secure").default(false),
   accessLevel: text("access_level").default("member"),
   uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
@@ -140,14 +164,16 @@ export const insertDocumentSchema = createInsertSchema(documents).pick({
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Document = typeof documents.$inferSelect;
 
-// Help Request schema
+/*----------------------------------
+  HELP REQUESTS
+----------------------------------*/
 export const helpRequests = pgTable("help_requests", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   requestedBy: integer("requested_by").notNull(),
   dateNeeded: timestamp("date_needed").notNull(),
-  status: text("status").notNull().default("needs_volunteer"), // "needs_volunteer", "has_volunteers", "completed"
+  status: text("status").notNull().default("needs_volunteer"),
   volunteers: jsonb("volunteers").notNull().default("[]"),
 });
 
@@ -161,7 +187,9 @@ export const insertHelpRequestSchema = createInsertSchema(helpRequests).pick({
 export type InsertHelpRequest = z.infer<typeof insertHelpRequestSchema>;
 export type HelpRequest = typeof helpRequests.$inferSelect;
 
-// Message schema
+/*----------------------------------
+  MESSAGES
+----------------------------------*/
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
@@ -184,14 +212,20 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 
-// Housing Issues schema
+/*----------------------------------
+  HOUSING ISSUES
+----------------------------------*/
 export const housingIssues = pgTable("housing_issues", {
   id: serial("id").primaryKey(),
-  family_member_id: integer("family_member_id").references(() => familyMembers.id),
+  family_member_id: integer("family_member_id").references(
+    () => familyMembers.id,
+  ),
   address: text("address").notNull(),
   issue_type: text("issue_type").notNull(),
   description: text("description"),
-  linked_document_id: integer("linked_document_id").references(() => documents.id),
+  linked_document_id: integer("linked_document_id").references(
+    () => documents.id,
+  ),
   created_at: timestamp("created_at").defaultNow(),
   resolved: boolean("resolved").default(false),
   resolution_notes: text("resolution_notes"),
