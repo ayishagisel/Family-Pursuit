@@ -119,14 +119,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // User is attached to request by authenticate middleware
       const user = await storage.getUser(req.user!.id);
-
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Return user data without password
+      const familyMember = await storage.getFamilyMemberByUserId(user.id);
+
       const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json({
+        ...userWithoutPassword,
+        familyMember: familyMember || null,
+      });
     } catch (error) {
       console.error("Error fetching current user:", error);
       res.status(500).json({ message: "Failed to fetch user data" });
@@ -880,11 +883,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analyze/relationships", async (req: Request, res: Response) => {
     try {
       console.log("Starting relationship analysis...");
-      
+
       // Retrieve data
       const familyMembers = await storage.getAllFamilyMembers();
       console.log(`Retrieved ${familyMembers.length} family members`);
-      
+
       const relationships = await storage.getAllRelationships();
       console.log(`Retrieved ${relationships.length} relationships`);
 
@@ -909,15 +912,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error in AI analysis:", aiError);
         // Continue to fallback on error
       }
-      
+
       // Generate fallback content as a backup
       console.log("Generating fallback relationship analysis...");
-      
+
       // Count generations by analyzing birth years
       const birthYears = familyMembers
         .filter((m: any) => m.birth_date)
         .map((m: any) => new Date(m.birth_date).getFullYear());
-      
+
       // Calculate generation span
       let generationSpan = 3; // Default
       if (birthYears.length > 0) {
@@ -925,34 +928,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const youngestYear = Math.max(...birthYears);
         generationSpan = Math.floor((youngestYear - oldestYear) / 20) || 1;
       }
-      
+
       // Count relationship types
-      const relationTypes = relationships.reduce((acc: Record<string, number>, rel: any) => {
-        const type = rel.relationship_type?.toLowerCase() || 'unknown';
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-      }, {});
-      
-      const parentChildCount = (relationTypes['parent'] || 0) + (relationTypes['child'] || 0);
-      const siblingCount = relationTypes['sibling'] || 0;
-      const spouseCount = relationTypes['spouse'] || 0;
-      
+      const relationTypes = relationships.reduce(
+        (acc: Record<string, number>, rel: any) => {
+          const type = rel.relationship_type?.toLowerCase() || "unknown";
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        },
+        {},
+      );
+
+      const parentChildCount =
+        (relationTypes["parent"] || 0) + (relationTypes["child"] || 0);
+      const siblingCount = relationTypes["sibling"] || 0;
+      const spouseCount = relationTypes["spouse"] || 0;
+
       // Gather personality traits and interests
       const traits = new Set<string>();
       const interests = new Set<string>();
-      
+
       familyMembers.forEach((member: any) => {
-        if (member.personality_traits && Array.isArray(member.personality_traits)) {
-          member.personality_traits.forEach((trait: string) => traits.add(trait));
+        if (
+          member.personality_traits &&
+          Array.isArray(member.personality_traits)
+        ) {
+          member.personality_traits.forEach((trait: string) =>
+            traits.add(trait),
+          );
         }
         if (member.interests && Array.isArray(member.interests)) {
-          member.interests.forEach((interest: string) => interests.add(interest));
+          member.interests.forEach((interest: string) =>
+            interests.add(interest),
+          );
         }
       });
-      
+
       const commonTraits = Array.from(traits).slice(0, 5);
       const commonInterests = Array.from(interests).slice(0, 5);
-      
+
       console.log("Sending fallback analysis response");
       return res.json({
         analysis: `
@@ -966,11 +980,11 @@ The family has a well-balanced generational spread, with members born across dif
 
 ## Relationship Patterns
 
-Relationship patterns show a healthy distribution of ${parentChildCount} parent-child connections, ${siblingCount || 'several'} sibling relationships, and ${spouseCount || 'multiple'} spouse partnerships. The family demonstrates resilience through its interconnected support network where extended family members actively participate in each other's lives.
+Relationship patterns show a healthy distribution of ${parentChildCount} parent-child connections, ${siblingCount || "several"} sibling relationships, and ${spouseCount || "multiple"} spouse partnerships. The family demonstrates resilience through its interconnected support network where extended family members actively participate in each other's lives.
 
 ## Personality Dynamics
 
-The family shows a diverse mix of personality traits including ${commonTraits.join(', ')}. This variety creates a dynamic where different members can complement each other's strengths. Family members share interests in ${commonInterests.join(', ')}, which provides natural opportunities for bonding and shared activities.
+The family shows a diverse mix of personality traits including ${commonTraits.join(", ")}. This variety creates a dynamic where different members can complement each other's strengths. Family members share interests in ${commonInterests.join(", ")}, which provides natural opportunities for bonding and shared activities.
 
 ## Unique Aspects
 
@@ -982,12 +996,14 @@ The family's strengths lie in its commitment to maintaining connections despite 
 
 *Note: This is a simplified analysis generated when the AI service is unavailable. A more personalized analysis would be created when the service is accessible.*
         `,
-        fallback: true
+        fallback: true,
       });
     } catch (error: any) {
       console.error("Error in relationship analysis:", error);
       res.status(500).json({
-        message: error.message || "An error occurred while analyzing the family relationships.",
+        message:
+          error.message ||
+          "An error occurred while analyzing the family relationships.",
         error: true,
       });
     }
@@ -1067,20 +1083,30 @@ The family's strengths lie in its commitment to maintaining connections despite 
     }
   });
 
-  app.get("/api/family-members/:id/housing-issues", async (req: Request, res: Response) => {
-    try {
-      const memberId = parseInt(req.params.id);
-      if (isNaN(memberId)) {
-        return res.status(400).json({ message: "Invalid ID format" });
-      }
+  app.get(
+    "/api/family-members/:id/housing-issues",
+    async (req: Request, res: Response) => {
+      try {
+        const memberId = parseInt(req.params.id);
+        if (isNaN(memberId)) {
+          return res.status(400).json({ message: "Invalid ID format" });
+        }
 
-      const issues = await storage.getHousingIssuesByMember(memberId);
-      res.json(issues);
-    } catch (error) {
-      console.error("Error fetching housing issues for family member:", error);
-      res.status(500).json({ message: "Failed to fetch housing issues for family member" });
-    }
-  });
+        const issues = await storage.getHousingIssuesByMember(memberId);
+        res.json(issues);
+      } catch (error) {
+        console.error(
+          "Error fetching housing issues for family member:",
+          error,
+        );
+        res
+          .status(500)
+          .json({
+            message: "Failed to fetch housing issues for family member",
+          });
+      }
+    },
+  );
 
   app.post("/api/housing-issues", async (req: Request, res: Response) => {
     try {
@@ -1147,26 +1173,29 @@ The family's strengths lie in its commitment to maintaining connections despite 
   });
 
   // Check HPD violations for an address
-  app.get("/api/housing/check-violations", async (req: Request, res: Response) => {
-    try {
-      const { address } = req.query;
-      
-      if (!address || typeof address !== 'string') {
-        return res.status(400).json({ message: "Address is required" });
-      }
+  app.get(
+    "/api/housing/check-violations",
+    async (req: Request, res: Response) => {
+      try {
+        const { address } = req.query;
 
-      const violations = await storage.checkHPDViolations(address);
-      res.json({ 
-        address,
-        violations,
-        count: violations.length,
-        hasViolations: violations.length > 0
-      });
-    } catch (error) {
-      console.error("Error checking HPD violations:", error);
-      res.status(500).json({ message: "Failed to check HPD violations" });
-    }
-  });
+        if (!address || typeof address !== "string") {
+          return res.status(400).json({ message: "Address is required" });
+        }
+
+        const violations = await storage.checkHPDViolations(address);
+        res.json({
+          address,
+          violations,
+          count: violations.length,
+          hasViolations: violations.length > 0,
+        });
+      } catch (error) {
+        console.error("Error checking HPD violations:", error);
+        res.status(500).json({ message: "Failed to check HPD violations" });
+      }
+    },
+  );
 
   const httpServer = createServer(app);
 

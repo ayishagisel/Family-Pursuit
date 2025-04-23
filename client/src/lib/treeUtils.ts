@@ -1,69 +1,158 @@
 import { FamilyMember } from "@shared/schema";
 
-// Extended FamilyMember type for tree visualization
 export interface TreeMember extends FamilyMember {
-  spouses?: any[];
-  children?: any[];
-  parents?: any[];
-  siblings?: any[];
-  extended?: any[];
-  childrenCount?: number;
-  siblingsCount?: number;
-  extendedCount?: number;
+  spouses?: TreeMember[];
+  children?: TreeMember[];
+  parents?: TreeMember[];
+  siblings?: TreeMember[];
   generation?: number;
   x?: number;
   y?: number;
 }
 
-export function buildFamilyTree(hierarchicalData: any[]): any[] {
-  const roots: any[] = hierarchicalData.filter((member: any) => {
-    return !member.parents || member.parents.length === 0;
-  });
+type VisualizationType =
+  | "hierarchical"
+  | "ancestor"
+  | "descendant"
+  | "sociogram"
+  | "flat";
 
-  if (roots.length === 0 && hierarchicalData.length > 0) {
-    console.warn("⚠️ No root members found, using all members as roots");
-    return hierarchicalData;
+interface TreeUtilsOptions {
+  visualizationType: VisualizationType;
+  data: TreeMember[];
+  selectedId?: number;
+  currentUserId?: number;
+}
+
+export function getPositionedFamilyTree({
+  visualizationType,
+  data,
+  selectedId,
+  currentUserId,
+}: TreeUtilsOptions): TreeMember[] {
+  if (!data || data.length === 0) return [];
+
+  let filtered: TreeMember[] = [];
+  const targetId = selectedId || currentUserId || 1;
+  const target = data.find((m) => m.id === targetId);
+
+  switch (visualizationType) {
+    case "ancestor":
+      filtered = target ? getAncestors(data, target) : [];
+      break;
+    case "descendant":
+      filtered = target ? getDescendants(data, target) : [];
+      break;
+    case "flat":
+    case "sociogram":
+      filtered = data;
+      break;
+    case "hierarchical":
+    default:
+      filtered = buildFullTree(data);
+      break;
   }
 
-  return roots;
+  assignGenerations(filtered);
+  assignCoordinates(filtered);
+
+  return filtered;
 }
 
-// New: Recursively find all ancestors
 export function getAncestors(
-  person: any,
-  allNodes: any[],
-  visited = new Set(),
-): any[] {
-  if (!person || visited.has(person.id)) return [];
-  visited.add(person.id);
+  all: TreeMember[],
+  start: TreeMember,
+): TreeMember[] {
+  const visited = new Map<number, TreeMember>();
+  const stack = [start];
 
-  const directParents = person.parents || [];
-  const parentNodes = directParents
-    .map((p: any) => allNodes.find((n) => n.id === p.id))
-    .filter(Boolean);
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || visited.has(current.id)) continue;
 
-  return [
-    person,
-    ...parentNodes.flatMap((p: any) => getAncestors(p, allNodes, visited)),
-  ];
+    visited.set(current.id, current);
+    if (current.parents) {
+      current.parents.forEach((pRef) => {
+        const p = all.find((m) => m.id === pRef.id);
+        if (p) stack.push(p);
+      });
+    }
+  }
+
+  return Array.from(visited.values());
 }
 
-// New: Recursively find all descendants
 export function getDescendants(
-  person: any,
-  allNodes: any[],
-  visited = new Set(),
-): any[] {
-  if (!person || visited.has(person.id)) return [];
-  visited.add(person.id);
+  all: TreeMember[],
+  start: TreeMember,
+): TreeMember[] {
+  const visited = new Map<number, TreeMember>();
+  const stack = [start];
 
-  const directChildren = person.children || [];
-  const childNodes = directChildren
-    .map((c: any) => allNodes.find((n) => n.id === c.id))
-    .filter(Boolean);
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || visited.has(current.id)) continue;
 
-  return [
-    person,
-    ...childNodes.flatMap((c: any) => getDescendants(c, allNodes, visited)),
-  ];
+    visited.set(current.id, current);
+    if (current.children) {
+      current.children.forEach((cRef) => {
+        const c = all.find((m) => m.id === cRef.id);
+        if (c) stack.push(c);
+      });
+    }
+  }
+
+  return Array.from(visited.values());
+}
+
+function buildFullTree(data: TreeMember[]): TreeMember[] {
+  const roots = data.filter((m) => !m.parents || m.parents.length === 0);
+  return roots.length > 0 ? roots : data;
+}
+
+function assignGenerations(members: TreeMember[]) {
+  const visited = new Set<number>();
+
+  const assign = (member: TreeMember, level: number) => {
+    if (visited.has(member.id)) return;
+    visited.add(member.id);
+    member.generation = level;
+
+    member.children?.forEach((cRef) => {
+      const child = members.find((m) => m.id === cRef.id);
+      if (child) assign(child, level + 1);
+    });
+
+    member.spouses?.forEach((sRef) => {
+      const spouse = members.find((m) => m.id === sRef.id);
+      if (spouse) assign(spouse, level);
+    });
+
+    member.siblings?.forEach((siblingRef) => {
+      const sibling = members.find((m) => m.id === siblingRef.id);
+      if (sibling) assign(sibling, level);
+    });
+  };
+
+  const roots = members.filter((m) => !m.parents || m.parents.length === 0);
+  roots.forEach((r) => assign(r, 0));
+}
+
+function assignCoordinates(members: TreeMember[]) {
+  const groupedByGen = new Map<number, TreeMember[]>();
+
+  members.forEach((m) => {
+    const gen = m.generation ?? 0;
+    if (!groupedByGen.has(gen)) groupedByGen.set(gen, []);
+    groupedByGen.get(gen)!.push(m);
+  });
+
+  for (const [gen, genMembers] of groupedByGen.entries()) {
+    const spacingX = 160;
+    const y = gen * 180;
+    genMembers.forEach((m, index) => {
+      m.x = index * spacingX;
+      m.y = y;
+    });
+  }
 }

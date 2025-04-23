@@ -3,9 +3,7 @@ import TreeNode from "./TreeNode";
 import RelationshipLine from "./RelationshipLine";
 import { FamilyMember } from "@shared/schema";
 import { Loader2 } from "lucide-react";
-import * as d3Hierarchy from "d3-hierarchy";
-
-import { getAncestors, getDescendants } from "../lib/treeUtils";
+import { getPositionedFamilyTree } from "../../lib/treeUtils";
 
 type VisualizationType =
   | "hierarchical"
@@ -15,7 +13,7 @@ type VisualizationType =
   | "flat";
 
 interface TreeCanvasProps {
-  nodes: any[];
+  nodes: FamilyMember[];
   layout?: string;
   onNodeClick?: (member: FamilyMember) => void;
   onZoomChange?: (scale: number) => void;
@@ -23,35 +21,17 @@ interface TreeCanvasProps {
   zoomOut?: boolean;
   resetView?: boolean;
   visualizationType?: VisualizationType;
-  selectedPersonId?: number; // ✨ New prop
+  selectedPersonId?: number;
 }
 
 interface PositionedNode extends FamilyMember {
   x: number;
   y: number;
-  children?: PositionedNode[];
-  _children?: PositionedNode[];
-  parents?: any[];
-  siblings?: any[];
-  spouses?: any[];
-  extended?: any[];
-  generation?: number;
-  parent?: PositionedNode;
-  spouse?: PositionedNode;
-  relationshipType?: string;
   _uniqueKey?: string;
-}
-
-interface RelationshipLineData {
-  source: PositionedNode;
-  target: PositionedNode;
-  type: string;
-  relationshipType: string;
 }
 
 const TreeCanvas = ({
   nodes = [],
-  layout = "hierarchical",
   onNodeClick,
   onZoomChange,
   zoomIn,
@@ -64,14 +44,16 @@ const TreeCanvas = ({
   const [transform, setTransform] = useState({ x: 200, y: 50, scale: 1.2 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    console.log("📦 Received tree with", nodes.length, "root nodes");
-  }, [nodes]);
-
-  const { positionedNodes, relationships } = useMemo(() => {
-    return processHierarchicalData(nodes, visualizationType, selectedPersonId);
+  const positionedNodes: PositionedNode[] = useMemo(() => {
+    return getPositionedFamilyTree({
+      visualizationType,
+      data: nodes,
+      selectedId: selectedPersonId,
+    }).map((m) => ({
+      ...m,
+      _uniqueKey: `member-${m.id}`,
+    }));
   }, [nodes, visualizationType, selectedPersonId]);
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -115,9 +97,8 @@ const TreeCanvas = ({
     }
   };
 
-  const handleMouseUp = () => setIsDragging(false);
-
   useEffect(() => {
+    const handleMouseUp = () => setIsDragging(false);
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("mouseleave", handleMouseUp);
     return () => {
@@ -132,15 +113,19 @@ const TreeCanvas = ({
 
   useEffect(() => {
     if (zoomIn) {
-      const newScale = Math.min(2, transform.scale + 0.2);
-      setTransform((prev) => ({ ...prev, scale: newScale }));
+      setTransform((prev) => ({
+        ...prev,
+        scale: Math.min(2, prev.scale + 0.2),
+      }));
     }
   }, [zoomIn]);
 
   useEffect(() => {
     if (zoomOut) {
-      const newScale = Math.max(0.5, transform.scale - 0.2);
-      setTransform((prev) => ({ ...prev, scale: newScale }));
+      setTransform((prev) => ({
+        ...prev,
+        scale: Math.max(0.5, prev.scale - 0.2),
+      }));
     }
   }, [zoomOut]);
 
@@ -150,34 +135,6 @@ const TreeCanvas = ({
     }
   }, [resetView]);
 
-  if (loading) {
-    return (
-      <div className="family-tree-canvas flex items-center justify-center p-6">
-        <div className="text-neutral-500 flex items-center gap-2">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span>Loading family tree...</span>
-        </div>
-      </div>
-    );
-  }
-
-  const renderRelationships = () => {
-    return relationships.map((rel, index) => {
-      const relationshipKey = `rel-${index}-${rel.source.id}-${rel.target.id}-${rel.type}`;
-      return (
-        <RelationshipLine
-          key={relationshipKey}
-          x1={rel.source.x}
-          y1={rel.source.y}
-          x2={rel.target.x}
-          y2={rel.target.y}
-          type={rel.relationshipType || "family"}
-          lineStyle="straight"
-        />
-      );
-    });
-  };
-
   return (
     <div className="family-tree-canvas relative w-full h-full overflow-hidden bg-background">
       <svg
@@ -186,15 +143,13 @@ const TreeCanvas = ({
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
       >
         <g
           transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
         >
-          {renderRelationships()}
           {positionedNodes.map((member) => (
             <TreeNode
-              key={member._uniqueKey || `member-${member.id}`}
+              key={member._uniqueKey}
               member={member}
               x={member.x}
               y={member.y}
@@ -210,43 +165,3 @@ const TreeCanvas = ({
 };
 
 export default TreeCanvas;
-
-// Add filter-based tree processor here
-function processHierarchicalData(
-  nodes: any[],
-  visualizationType: VisualizationType,
-  selectedPersonId?: number,
-): {
-  positionedNodes: PositionedNode[];
-  relationships: RelationshipLineData[];
-} {
-  if (!nodes || nodes.length === 0)
-    return { positionedNodes: [], relationships: [] };
-
-  let filteredNodes = [...nodes];
-
-  if (
-    (visualizationType === "ancestor" || visualizationType === "descendant") &&
-    selectedPersonId
-  ) {
-    const rootNode = nodes.find((n) => n.id === selectedPersonId);
-    if (rootNode) {
-      filteredNodes =
-        visualizationType === "ancestor"
-          ? getAncestors(rootNode, nodes)
-          : getDescendants(rootNode, nodes);
-    }
-  }
-
-  // Dummy layout for now – can plug in your real layout logic
-  const positionedNodes = filteredNodes.map((node, i) => ({
-    ...node,
-    x: i * 150,
-    y: 100,
-    _uniqueKey: `node-${node.id}`,
-  }));
-
-  const relationships: RelationshipLineData[] = []; // Add real relationships if needed
-
-  return { positionedNodes, relationships };
-}
