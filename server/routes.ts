@@ -114,26 +114,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current user (protected route)
-  app.get("/api/auth/me", authenticate, async (req: Request, res: Response) => {
-    try {
-      // User is attached to request by authenticate middleware
-      const user = await storage.getUser(req.user!.id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
+  // // Get current user (protected route)
+  // app.get("/api/auth/me", authenticate, async (req: Request, res: Response) => {
+  //   try {
+  //     // User is attached to request by authenticate middleware
+  //     const user = await storage.getUser(req.user!.id);
+  //     if (!user) {
+  //       return res.status(404).json({ message: "User not found" });
+  //     }
 
-      const familyMember = await storage.getFamilyMemberByUserId(user.id);
+  //     const familyMember = await storage.getFamilyMemberByUserId(user.id);
 
-      const { password, ...userWithoutPassword } = user;
-      res.json({
-        ...userWithoutPassword,
-        familyMember: familyMember || null,
-      });
-    } catch (error) {
-      console.error("Error fetching current user:", error);
-      res.status(500).json({ message: "Failed to fetch user data" });
-    }
+  //     const { password, ...userWithoutPassword } = user;
+  //     res.json({
+  //       ...userWithoutPassword,
+  //       familyMember: familyMember || null,
+  //     });
+  //   } catch (error) {
+  //     console.error("Error fetching current user:", error);
+  //     res.status(500).json({ message: "Failed to fetch user data" });
+  //   }
+  // });
+
+  // Get current user (development stub)
+  app.get("/api/auth/me", async (req: Request, res: Response) => {
+    res.json({
+      id: 1,
+      username: "devuser",
+      name: "Dev User",
+      email: "dev@example.com",
+      role: "member",
+      familyMember: {
+        id: 1,
+        name: "John Smith",
+        role: "Father",
+      },
+    });
   });
 
   // Administrative route example (protected + admin only)
@@ -325,13 +341,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (visualizationType === "ancestor" && rootMemberId) {
           console.log(`Filtering for ancestors of member ${rootMemberId}`);
-          filteredStructure = filterForAncestors(
+          filteredStructure = filterForAncestorsForAPI(
             hierarchicalStructure,
             rootMemberId,
           );
         } else if (visualizationType === "descendant" && rootMemberId) {
           console.log(`Filtering for descendants of member ${rootMemberId}`);
-          filteredStructure = filterForDescendants(
+          filteredStructure = filterForDescendantsForAPI(
             hierarchicalStructure,
             rootMemberId,
           );
@@ -376,14 +392,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (visualizationType === "ancestor" && rootMemberId) {
         // For ancestor chart, filter to include only the ancestors of the specified member
         console.log(`Filtering for ancestors of member ${rootMemberId}`);
-        filteredStructure = filterForAncestors(
+        filteredStructure = filterForAncestorsForAPI(
           hierarchicalStructure,
           rootMemberId,
         );
       } else if (visualizationType === "descendant" && rootMemberId) {
         // For descendant chart, filter to include only the descendants of the specified member
         console.log(`Filtering for descendants of member ${rootMemberId}`);
-        filteredStructure = filterForDescendants(
+        filteredStructure = filterForDescendantsForAPI(
           hierarchicalStructure,
           rootMemberId,
         );
@@ -409,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to filter structure for ancestor chart
-  function filterForAncestors(members: any[], rootId: number): any[] {
+  function filterAncestorsForAPI(members: any[], rootId: number): any[] {
     // Find the root member
     const rootMember = members.find((m) => m.id === rootId);
     if (!rootMember) return members;
@@ -441,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Helper function to filter structure for descendant chart
-  function filterForDescendants(members: any[], rootId: number): any[] {
+  function filterDescendantsForAPI(members: any[], rootId: number): any[] {
     // Find the root member
     const rootMember = members.find((m) => m.id === rootId);
     if (!rootMember) return members;
@@ -1099,11 +1115,9 @@ The family's strengths lie in its commitment to maintaining connections despite 
           "Error fetching housing issues for family member:",
           error,
         );
-        res
-          .status(500)
-          .json({
-            message: "Failed to fetch housing issues for family member",
-          });
+        res.status(500).json({
+          message: "Failed to fetch housing issues for family member",
+        });
       }
     },
   );

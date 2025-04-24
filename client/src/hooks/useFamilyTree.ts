@@ -1,11 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 
-export function useFamilyTree() {
+export function useFamilyTree(
+  visualizationType: string = "hierarchical",
+  selectedPersonId?: number,
+) {
   return useQuery({
-    queryKey: ["family-tree"],
+    queryKey: ["family-tree", visualizationType, selectedPersonId],
     queryFn: async () => {
-      const res = await fetch("/api/family/hierarchical");
-      if (!res.ok) throw new Error("Failed to fetch hierarchical family tree");
+      const params = new URLSearchParams();
+      params.append("type", visualizationType);
+      if (selectedPersonId) {
+        params.append("root", selectedPersonId.toString());
+      }
+
+      const res = await fetch(`/api/family/hierarchical?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch filtered family tree");
       return res.json();
     },
   });

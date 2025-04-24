@@ -45,7 +45,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     logOperation("READ", "user_by_username", { username });
-    const results = await db.select().from(users).where(eq(users.username, username));
+    const results = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
     return results[0];
   }
 
@@ -82,7 +85,10 @@ export class DatabaseStorage implements IStorage {
     return results[0];
   }
 
-  async updateEvent(id: number, event: Partial<InsertEvent>): Promise<Event | undefined> {
+  async updateEvent(
+    id: number,
+    event: Partial<InsertEvent>,
+  ): Promise<Event | undefined> {
     logOperation("UPDATE", "event", { id, ...event });
     const results = await db
       .update(events)
@@ -94,14 +100,23 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEvent(id: number): Promise<boolean> {
     logOperation("DELETE", "event", { id });
-    const results = await db.delete(events).where(eq(events.id, id)).returning();
+    const results = await db
+      .delete(events)
+      .where(eq(events.id, id))
+      .returning();
     return results.length > 0;
   }
 
-  async addAttendee(eventId: number, userId: number): Promise<Event | undefined> {
+  async addAttendee(
+    eventId: number,
+    userId: number,
+  ): Promise<Event | undefined> {
     logOperation("UPDATE", "event_attendee", { eventId, userId });
     // Get the current event
-    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    const [event] = await db
+      .select()
+      .from(events)
+      .where(eq(events.id, eventId));
     if (!event) return undefined;
 
     // Update the attendees array
@@ -120,15 +135,21 @@ export class DatabaseStorage implements IStorage {
     return updatedEvent;
   }
 
-  async removeAttendee(eventId: number, userId: number): Promise<Event | undefined> {
+  async removeAttendee(
+    eventId: number,
+    userId: number,
+  ): Promise<Event | undefined> {
     logOperation("UPDATE", "event_attendee_remove", { eventId, userId });
     // Get the current event
-    const [event] = await db.select().from(events).where(eq(events.id, eventId));
+    const [event] = await db
+      .select()
+      .from(events)
+      .where(eq(events.id, eventId));
     if (!event) return undefined;
 
     // Remove the user from attendees
     let attendees = event.attendees || [];
-    attendees = attendees.filter(id => id !== userId);
+    attendees = attendees.filter((id) => id !== userId);
 
     // Update the event
     const [updatedEvent] = await db
@@ -143,7 +164,10 @@ export class DatabaseStorage implements IStorage {
   // Document methods
   async getDocument(id: number): Promise<Document | undefined> {
     logOperation("READ", "document", { id });
-    const results = await db.select().from(documents).where(eq(documents.id, id));
+    const results = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, id));
     return results[0];
   }
 
@@ -151,12 +175,12 @@ export class DatabaseStorage implements IStorage {
     logOperation("READ", "documents", { count: "all" });
     try {
       const result = await db.select().from(documents);
-      
+
       // Add missing properties that are in the model but not in the database
-      return result.map(doc => ({
+      return result.map((doc) => ({
         ...doc,
         isSecure: false, // Default to false for all documents
-        accessLevel: "member" // Default access level
+        accessLevel: "member", // Default access level
       }));
     } catch (error) {
       console.error("Error in getAllDocuments:", error);
@@ -172,7 +196,7 @@ export class DatabaseStorage implements IStorage {
           documentType: "generic",
           isSecure: false,
           accessLevel: "member",
-          uploadedAt: new Date()
+          uploadedAt: new Date(),
         },
         {
           id: 2,
@@ -184,7 +208,7 @@ export class DatabaseStorage implements IStorage {
           documentType: "image",
           isSecure: false,
           accessLevel: "member",
-          uploadedAt: new Date()
+          uploadedAt: new Date(),
         },
         {
           id: 3,
@@ -196,7 +220,7 @@ export class DatabaseStorage implements IStorage {
           documentType: "legal",
           isSecure: true,
           accessLevel: "admin",
-          uploadedAt: new Date()
+          uploadedAt: new Date(),
         },
         {
           id: 4,
@@ -208,7 +232,7 @@ export class DatabaseStorage implements IStorage {
           documentType: "financial",
           isSecure: false,
           accessLevel: "member",
-          uploadedAt: new Date()
+          uploadedAt: new Date(),
         },
         {
           id: 5,
@@ -220,7 +244,7 @@ export class DatabaseStorage implements IStorage {
           documentType: "medical",
           isSecure: true,
           accessLevel: "admin",
-          uploadedAt: new Date()
+          uploadedAt: new Date(),
         },
         {
           id: 6,
@@ -232,8 +256,8 @@ export class DatabaseStorage implements IStorage {
           documentType: "intellectual",
           isSecure: false,
           accessLevel: "member",
-          uploadedAt: new Date()
-        }
+          uploadedAt: new Date(),
+        },
       ];
     }
   }
@@ -252,7 +276,7 @@ export class DatabaseStorage implements IStorage {
         documentType: "legal",
         isSecure: true,
         accessLevel: "admin",
-        uploadedAt: new Date()
+        uploadedAt: new Date(),
       },
       {
         id: 5,
@@ -264,8 +288,8 @@ export class DatabaseStorage implements IStorage {
         documentType: "medical",
         isSecure: true,
         accessLevel: "admin",
-        uploadedAt: new Date()
-      }
+        uploadedAt: new Date(),
+      },
     ];
   }
 
@@ -275,7 +299,10 @@ export class DatabaseStorage implements IStorage {
     return results[0];
   }
 
-  async updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document | undefined> {
+  async updateDocument(
+    id: number,
+    document: Partial<InsertDocument>,
+  ): Promise<Document | undefined> {
     logOperation("UPDATE", "document", { id, ...document });
     const results = await db
       .update(documents)
@@ -287,14 +314,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDocument(id: number): Promise<boolean> {
     logOperation("DELETE", "document", { id });
-    const results = await db.delete(documents).where(eq(documents.id, id)).returning();
+    const results = await db
+      .delete(documents)
+      .where(eq(documents.id, id))
+      .returning();
     return results.length > 0;
   }
 
   // Help Request methods
   async getHelpRequest(id: number): Promise<HelpRequest | undefined> {
     logOperation("READ", "help_request", { id });
-    const results = await db.select().from(helpRequests).where(eq(helpRequests.id, id));
+    const results = await db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.id, id));
     return results[0];
   }
 
@@ -303,13 +336,21 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(helpRequests);
   }
 
-  async createHelpRequest(helpRequest: InsertHelpRequest): Promise<HelpRequest> {
+  async createHelpRequest(
+    helpRequest: InsertHelpRequest,
+  ): Promise<HelpRequest> {
     logOperation("CREATE", "help_request", helpRequest);
-    const results = await db.insert(helpRequests).values(helpRequest).returning();
+    const results = await db
+      .insert(helpRequests)
+      .values(helpRequest)
+      .returning();
     return results[0];
   }
 
-  async updateHelpRequest(id: number, helpRequest: Partial<InsertHelpRequest>): Promise<HelpRequest | undefined> {
+  async updateHelpRequest(
+    id: number,
+    helpRequest: Partial<InsertHelpRequest>,
+  ): Promise<HelpRequest | undefined> {
     logOperation("UPDATE", "help_request", { id, ...helpRequest });
     const results = await db
       .update(helpRequests)
@@ -321,14 +362,23 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHelpRequest(id: number): Promise<boolean> {
     logOperation("DELETE", "help_request", { id });
-    const results = await db.delete(helpRequests).where(eq(helpRequests.id, id)).returning();
+    const results = await db
+      .delete(helpRequests)
+      .where(eq(helpRequests.id, id))
+      .returning();
     return results.length > 0;
   }
 
-  async addVolunteer(requestId: number, userId: number): Promise<HelpRequest | undefined> {
+  async addVolunteer(
+    requestId: number,
+    userId: number,
+  ): Promise<HelpRequest | undefined> {
     logOperation("UPDATE", "help_request_volunteer", { requestId, userId });
     // Get the current help request
-    const [helpRequest] = await db.select().from(helpRequests).where(eq(helpRequests.id, requestId));
+    const [helpRequest] = await db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.id, requestId));
     if (!helpRequest) return undefined;
 
     // Update the volunteers array
@@ -350,18 +400,28 @@ export class DatabaseStorage implements IStorage {
     return updatedRequest;
   }
 
-  async removeVolunteer(requestId: number, userId: number): Promise<HelpRequest | undefined> {
-    logOperation("UPDATE", "help_request_volunteer_remove", { requestId, userId });
+  async removeVolunteer(
+    requestId: number,
+    userId: number,
+  ): Promise<HelpRequest | undefined> {
+    logOperation("UPDATE", "help_request_volunteer_remove", {
+      requestId,
+      userId,
+    });
     // Get the current help request
-    const [helpRequest] = await db.select().from(helpRequests).where(eq(helpRequests.id, requestId));
+    const [helpRequest] = await db
+      .select()
+      .from(helpRequests)
+      .where(eq(helpRequests.id, requestId));
     if (!helpRequest) return undefined;
 
     // Remove the user from volunteers
     let volunteers = helpRequest.volunteers || [];
-    volunteers = volunteers.filter(id => id !== userId);
+    volunteers = volunteers.filter((id) => id !== userId);
 
     // Update the status if we have no volunteers
-    const status = volunteers.length === 0 ? "needs_volunteer" : "has_volunteers";
+    const status =
+      volunteers.length === 0 ? "needs_volunteer" : "has_volunteers";
 
     // Update the help request
     const [updatedRequest] = await db
@@ -388,14 +448,17 @@ export class DatabaseStorage implements IStorage {
     logOperation("READ", "family_members", { count: members.length });
     return members;
   }
-  
+
   async createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember> {
     logOperation("CREATE", "family_member", member);
     const results = await db.insert(familyMembers).values(member).returning();
     return results[0];
   }
-  
-  async updateFamilyMember(id: number, member: Partial<InsertFamilyMember>): Promise<FamilyMember | undefined> {
+
+  async updateFamilyMember(
+    id: number,
+    member: Partial<InsertFamilyMember>,
+  ): Promise<FamilyMember | undefined> {
     logOperation("UPDATE", "family_member", { id, ...member });
     const results = await db
       .update(familyMembers)
@@ -404,10 +467,13 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return results[0];
   }
-  
+
   async deleteFamilyMember(id: number): Promise<boolean> {
     logOperation("DELETE", "family_member", { id });
-    const results = await db.delete(familyMembers).where(eq(familyMembers.id, id)).returning();
+    const results = await db
+      .delete(familyMembers)
+      .where(eq(familyMembers.id, id))
+      .returning();
     return results.length > 0;
   }
 
@@ -416,13 +482,16 @@ export class DatabaseStorage implements IStorage {
     logOperation("READ", "relationships", { count: allRelationships.length });
     return allRelationships;
   }
-  
+
   async getRelationship(id: number): Promise<Relationship | undefined> {
     logOperation("READ", "relationship", { id });
-    const results = await db.select().from(relationships).where(eq(relationships.id, id));
+    const results = await db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.id, id));
     return results[0];
   }
-  
+
   async getRelationshipsByMember(memberId: number): Promise<Relationship[]> {
     logOperation("READ", "relationships_by_member", { memberId });
     return await db
@@ -431,18 +500,26 @@ export class DatabaseStorage implements IStorage {
       .where(
         or(
           eq(relationships.source_id, memberId),
-          eq(relationships.target_id, memberId)
-        )
+          eq(relationships.target_id, memberId),
+        ),
       );
   }
-  
-  async createRelationship(relationship: InsertRelationship): Promise<Relationship> {
+
+  async createRelationship(
+    relationship: InsertRelationship,
+  ): Promise<Relationship> {
     logOperation("CREATE", "relationship", relationship);
-    const results = await db.insert(relationships).values(relationship).returning();
+    const results = await db
+      .insert(relationships)
+      .values(relationship)
+      .returning();
     return results[0];
   }
 
-  async updateRelationship(id: number, relationship: Partial<InsertRelationship>): Promise<Relationship | undefined> {
+  async updateRelationship(
+    id: number,
+    relationship: Partial<InsertRelationship>,
+  ): Promise<Relationship | undefined> {
     logOperation("UPDATE", "relationship", { id, ...relationship });
     const results = await db
       .update(relationships)
@@ -454,7 +531,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRelationship(id: number): Promise<boolean> {
     logOperation("DELETE", "relationship", { id });
-    const results = await db.delete(relationships).where(eq(relationships.id, id)).returning();
+    const results = await db
+      .delete(relationships)
+      .where(eq(relationships.id, id))
+      .returning();
     return results.length > 0;
   }
 
@@ -469,17 +549,7 @@ export class DatabaseStorage implements IStorage {
       const membersMap = new Map<number, any>();
       allMembers.forEach((member) => {
         membersMap.set(member.id, {
-          id: member.id,
-          name: member.name,
-          role: member.role,
-          relationship: member.relationship,
-          birth_date: member.birth_date,
-          location: member.location,
-          bio: member.bio,
-          personality_traits: member.personality_traits,
-          interests: member.interests,
-          occupation: member.occupation,
-          avatarUrl: member.avatarUrl,
+          ...member,
           spouses: [],
           children: [],
           parents: [],
@@ -488,6 +558,7 @@ export class DatabaseStorage implements IStorage {
           childrenCount: 0,
           siblingsCount: 0,
           extendedCount: 0,
+          generation: undefined,
           relationships: {
             immediate: [],
             extended: [],
@@ -499,18 +570,27 @@ export class DatabaseStorage implements IStorage {
         });
       });
 
+      const parentCouples = new Map<
+        string,
+        { parents: number[]; children: number[] }
+      >();
+
       allRelationships.forEach((rel) => {
         const source = membersMap.get(rel.source_id);
         const target = membersMap.get(rel.target_id);
-
         if (!source || !target) return;
+
+        const type = rel.relationship_type.toLowerCase();
+        const category =
+          rel.relation_category ||
+          this.determineRelationCategory(rel.relationship_type);
 
         const forward = {
           id: target.id,
           name: target.name,
           role: target.role,
           relationship_type: rel.relationship_type,
-          relation_category: rel.relation_category || "immediate",
+          relation_category: category,
           relationship_id: rel.id,
           notes: rel.notes || null,
           birth_date: target.birth_date,
@@ -524,22 +604,17 @@ export class DatabaseStorage implements IStorage {
           relationship_type: this.getInverseRelationshipType(
             rel.relationship_type,
           ),
-          relation_category: rel.relation_category || "immediate",
+          relation_category: category,
           relationship_id: rel.id,
           notes: rel.notes || null,
           birth_date: source.birth_date,
           avatarUrl: source.avatarUrl,
         };
 
-        const category =
-          rel.relation_category ||
-          this.determineRelationCategory(rel.relationship_type);
         if (source.relationships[category])
           source.relationships[category].push(forward);
         if (target.relationships[category])
           target.relationships[category].push(backward);
-
-        const type = rel.relationship_type.toLowerCase();
 
         if (type === "spouse") {
           source.spouses.push(forward);
@@ -547,17 +622,29 @@ export class DatabaseStorage implements IStorage {
         } else if (
           [
             "parent",
-            "step-parent",
-            "adoptive-parent",
             "father",
             "mother",
+            "adoptive-parent",
+            "step-parent",
           ].includes(type)
         ) {
           source.children.push(forward);
           source.childrenCount++;
           target.parents.push(backward);
+
+          for (const partner of source.spouses || []) {
+            const key = [source.id, partner.id].sort().join("-");
+            const pair = parentCouples.get(key) || {
+              parents: [source.id, partner.id],
+              children: [],
+            };
+            if (!pair.children.includes(target.id)) {
+              pair.children.push(target.id);
+            }
+            parentCouples.set(key, pair);
+          }
         } else if (
-          ["child", "step-child", "adoptive-child", "son", "daughter"].includes(
+          ["child", "son", "daughter", "step-child", "adoptive-child"].includes(
             type,
           )
         ) {
@@ -607,17 +694,21 @@ export class DatabaseStorage implements IStorage {
 
       for (const spouse of member.spouses || []) {
         const spouseObj = membersMap.get(spouse.id);
-        if (spouseObj) assignGeneration(spouseObj, generation);
+        if (spouseObj && spouseObj.generation === undefined) {
+          assignGeneration(spouseObj, generation);
+        }
       }
 
       for (const sibling of member.siblings || []) {
         const siblingObj = membersMap.get(sibling.id);
-        if (siblingObj) assignGeneration(siblingObj, generation);
+        if (siblingObj && siblingObj.generation === undefined) {
+          assignGeneration(siblingObj, generation);
+        }
       }
     };
 
     const rootMembers = Array.from(membersMap.values()).filter(
-      (m) => m.parents.length === 0,
+      (m) => !m.parents || m.parents.length === 0,
     );
 
     for (const root of rootMembers) {
@@ -687,12 +778,18 @@ export class DatabaseStorage implements IStorage {
 
   async getMessagesBySender(senderId: number): Promise<Message[]> {
     logOperation("READ", "messages_by_sender", { senderId });
-    return await db.select().from(messages).where(eq(messages.senderId, senderId));
+    return await db
+      .select()
+      .from(messages)
+      .where(eq(messages.senderId, senderId));
   }
 
   async getMessagesByReceiver(receiverId: number): Promise<Message[]> {
     logOperation("READ", "messages_by_receiver", { receiverId });
-    return await db.select().from(messages).where(eq(messages.receiverId, receiverId));
+    return await db
+      .select()
+      .from(messages)
+      .where(eq(messages.receiverId, receiverId));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
@@ -713,7 +810,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMessage(id: number): Promise<boolean> {
     logOperation("DELETE", "message", { id });
-    const results = await db.delete(messages).where(eq(messages.id, id)).returning();
+    const results = await db
+      .delete(messages)
+      .where(eq(messages.id, id))
+      .returning();
     return results.length > 0;
   }
 
@@ -783,7 +883,10 @@ export class DatabaseStorage implements IStorage {
   // Housing Issues methods
   async getHousingIssue(id: number): Promise<HousingIssue | undefined> {
     logOperation("READ", "housing_issue", { id });
-    const results = await db.select().from(housingIssues).where(eq(housingIssues.id, id));
+    const results = await db
+      .select()
+      .from(housingIssues)
+      .where(eq(housingIssues.id, id));
     return results[0];
   }
 
@@ -806,7 +909,10 @@ export class DatabaseStorage implements IStorage {
     return results[0];
   }
 
-  async updateHousingIssue(id: number, issue: Partial<InsertHousingIssue>): Promise<HousingIssue | undefined> {
+  async updateHousingIssue(
+    id: number,
+    issue: Partial<InsertHousingIssue>,
+  ): Promise<HousingIssue | undefined> {
     logOperation("UPDATE", "housing_issue", { id, ...issue });
     const results = await db
       .update(housingIssues)
@@ -818,7 +924,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHousingIssue(id: number): Promise<boolean> {
     logOperation("DELETE", "housing_issue", { id });
-    const results = await db.delete(housingIssues).where(eq(housingIssues.id, id)).returning();
+    const results = await db
+      .delete(housingIssues)
+      .where(eq(housingIssues.id, id))
+      .returning();
     return results.length > 0;
   }
 
@@ -832,15 +941,15 @@ export class DatabaseStorage implements IStorage {
         category: "Class C",
         description: "Inadequate supply of heat/hot water",
         status: "Open",
-        issueDate: "2023-10-15"
+        issueDate: "2023-10-15",
       },
       {
         violationId: "HPD-2023-002",
         category: "Class B",
         description: "Peeling lead paint",
         status: "Open",
-        issueDate: "2023-11-03"
-      }
+        issueDate: "2023-11-03",
+      },
     ];
   }
 }

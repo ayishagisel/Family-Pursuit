@@ -1,6 +1,4 @@
-import React, { useState, useCallback } from "react";
-import { useFamilyTree } from "../hooks/useFamilyTree";
-import { buildFamilyTree, TreeMember } from "../lib/treeUtils";
+import React, { useState, useCallback, useEffect } from "react";
 import TreeCanvas from "@/components/family-tree/TreeCanvas";
 import TreeControls from "@/components/family-tree/TreeControls";
 import FamilyInsights from "@/components/ai/FamilyInsights";
@@ -16,11 +14,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FamilyMember } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { TreeMember } from "../lib/treeUtils";
 
 const FamilyTreePage: React.FC = () => {
-  const [selectedMember, setSelectedMember] = useState<TreeMember | null>(
-    null,
-  );
+  const [selectedMember, setSelectedMember] = useState<TreeMember | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [zoomIn, setZoomIn] = useState(false);
   const [zoomOut, setZoomOut] = useState(false);
@@ -28,22 +25,42 @@ const FamilyTreePage: React.FC = () => {
   const [visualizationType, setVisualizationType] =
     useState<string>("hierarchical");
 
-  // Load hierarchical family tree from the relationships API
-  const { data: familyTreeData, isLoading, error } = useFamilyTree();
+  const [familyTreeData, setFamilyTreeData] = useState<TreeMember[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  React.useEffect(() => {
-    console.log("📦 Raw flat data from API:", familyTreeData);
-  }, [familyTreeData]);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          const rootParam =
+            selectedMember?.id &&
+            ["ancestor", "descendant"].includes(visualizationType)
+              ? `&root=${selectedMember.id}`
+              : "";
 
-  // Make sure we handle undefined data and correctly process all nodes
-  // Instead of just using root nodes, we'll pass all nodes to the tree visualization
-  const tree = familyTreeData ? familyTreeData : [];
+          const res = await fetch(
+            `/api/relationships?type=${visualizationType}${rootParam}`,
+          );
+          const data = await res.json();
 
-  React.useEffect(() => {
-    console.log("🌳 Final nested tree (used by TreeCanvas):", tree);
-  }, [tree]);
+          console.log("✅ API response:", data); // ✅ Debug log
 
-  // Family member detail narrative
+          setFamilyTreeData(Array.isArray(data) ? data : data.nodes || []);
+        } catch (err) {
+          console.error("❌ Error loading tree:", err);
+          setFamilyTreeData([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchData();
+    }, 150); // Delay slightly to debounce rapid state changes
+
+    return () => clearTimeout(timeout);
+  }, [visualizationType, selectedMember]);
+
   const { data: memberDetails, isLoading: isDetailLoading } = useQuery<any>({
     queryKey: [`/api/family-members/${selectedMember?.id}/narrative`],
     enabled: !!selectedMember?.id,
@@ -86,12 +103,9 @@ const FamilyTreePage: React.FC = () => {
               Visualize and navigate your family relationships
             </p>
           </div>
-          <button 
+          <button
             className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-md flex items-center gap-2 shadow-sm"
-            onClick={() => {
-              // This would usually open a modal or navigate to a form
-              alert("This feature is coming soon!");
-            }}
+            onClick={() => alert("This feature is coming soon!")}
           >
             <i className="fas fa-plus-circle"></i>
             Add Family Member
@@ -107,20 +121,37 @@ const FamilyTreePage: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-6">
-          {/* Full-width tree visualization */}
           <div className="w-full bg-background border rounded-xl shadow-sm overflow-hidden h-[600px]">
-            <TreeCanvas
-              nodes={tree}
-              visualizationType={visualizationType as "hierarchical" | "ancestor" | "descendant" | "sociogram" | "flat"}
-              onNodeClick={handleMemberClick}
-              onZoomChange={handleZoomChange}
-              zoomIn={zoomIn}
-              zoomOut={zoomOut}
-              resetView={resetView}
-            />
+            {isLoading || familyTreeData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading family tree...
+              </div>
+            ) : (
+              <TreeCanvas
+                nodes={
+                  visualizationType === "sociogram" && "nodes" in familyTreeData
+                    ? familyTreeData.nodes
+                    : familyTreeData
+                }
+                visualizationType={
+                  visualizationType as
+                    | "hierarchical"
+                    | "ancestor"
+                    | "descendant"
+                    | "sociogram"
+                    | "flat"
+                }
+                onNodeClick={handleMemberClick}
+                onZoomChange={handleZoomChange}
+                zoomIn={zoomIn}
+                zoomOut={zoomOut}
+                resetView={resetView}
+                selectedPersonId={selectedMember?.id}
+              />
+            )}
           </div>
 
-          {/* Family member details below the tree */}
           <div className="w-full">
             <Card>
               <CardHeader>
@@ -133,11 +164,8 @@ const FamilyTreePage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 {!selectedMember ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                    <p>
-                      Click on any family member in the tree to view their
-                      details
-                    </p>
+                  <div className="flex justify-center items-center p-8 text-muted-foreground">
+                    Click a family member to see their details.
                   </div>
                 ) : (
                   <Tabs defaultValue="info">
@@ -157,57 +185,41 @@ const FamilyTreePage: React.FC = () => {
                     </TabsList>
 
                     <TabsContent value="info" className="mt-4">
-                      <div className="grid gap-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex flex-col space-y-3">
-                            <div>
-                              <h3 className="font-medium text-sm">Role</h3>
-                              <p className="text-muted-foreground">
-                                {selectedMember.role || "Not specified"}
-                              </p>
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-sm">Birth Date</h3>
-                              <p className="text-muted-foreground">
-                                {selectedMember.birth_date
-                                  ? new Date(selectedMember.birth_date).toLocaleDateString()
-                                  : "Not specified"}
-                              </p>
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-sm">Location</h3>
-                              <p className="text-muted-foreground">
-                                {selectedMember.location || "Not specified"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex flex-col space-y-3">
-                            <div>
-                              <h3 className="font-medium text-sm">Occupation</h3>
-                              <p className="text-muted-foreground">
-                                {selectedMember.occupation || "Not specified"}
-                              </p>
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-sm">Personality</h3>
-                              <p className="text-muted-foreground">
-                                {selectedMember.personality_traits?.join(", ") || "Not specified"}
-                              </p>
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-sm">Interests</h3>
-                              <p className="text-muted-foreground">
-                                {selectedMember.interests?.join(", ") || "Not specified"}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h3 className="font-medium text-sm">Bio</h3>
+                          <h3 className="font-medium text-sm">Role</h3>
                           <p className="text-muted-foreground">
-                            {selectedMember.bio || "No biography available."}
+                            {selectedMember.role || "Not specified"}
                           </p>
                         </div>
+                        <div>
+                          <h3 className="font-medium text-sm">Birth Date</h3>
+                          <p className="text-muted-foreground">
+                            {selectedMember.birth_date
+                              ? new Date(
+                                  selectedMember.birth_date,
+                                ).toLocaleDateString()
+                              : "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-sm">Occupation</h3>
+                          <p className="text-muted-foreground">
+                            {selectedMember.occupation || "Not specified"}
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-sm">Location</h3>
+                          <p className="text-muted-foreground">
+                            {selectedMember.location || "Not specified"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <h3 className="font-medium text-sm">Bio</h3>
+                        <p className="text-muted-foreground">
+                          {selectedMember.bio || "No bio available."}
+                        </p>
                       </div>
                     </TabsContent>
 
@@ -218,103 +230,52 @@ const FamilyTreePage: React.FC = () => {
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                           </div>
                         ) : memberDetails?.narrative ? (
-                          <div className="prose max-w-none dark:prose-invert">
+                          <div className="prose dark:prose-invert max-w-none">
                             <h3>Personal Story</h3>
-                            <div dangerouslySetInnerHTML={{ 
-                              __html: memberDetails.narrative
-                                .replace(/\n\s*\n/g, '<br><br>')
-                                .replace(/\n(?!\s*<)/g, '<br>')
-                                .replace(/\# ([^\n]+)/g, '<h4>$1</h4>') // Support markdown headings
-                            }} />
+                            <div
+                              dangerouslySetInnerHTML={{
+                                __html: memberDetails.narrative
+                                  .replace(/\n\s*\n/g, "<br><br>")
+                                  .replace(/\n(?!\s*<)/g, "<br>")
+                                  .replace(/\# ([^\n]+)/g, "<h4>$1</h4>"),
+                              }}
+                            />
                           </div>
                         ) : (
                           <div className="text-center text-muted-foreground">
-                            <p>No personal story available for this family member.</p>
+                            No story available for this person.
                           </div>
                         )}
                       </ScrollArea>
                     </TabsContent>
 
                     <TabsContent value="relationships" className="mt-4">
-                      <div className="space-y-4">
-                        {selectedMember.spouses && selectedMember.spouses.length > 0 && (
-                          <div>
-                            <h3 className="font-medium text-sm mb-2">Spouse</h3>
-                            <ul className="list-disc pl-5 text-muted-foreground">
-                              {selectedMember.spouses.map((spouse) => (
-                                <li key={spouse.id}>
-                                  {spouse.name}{" "}
-                                  <span className="text-xs opacity-70">
-                                    ({spouse.notes || "Spouse"})
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {selectedMember.children && selectedMember.children.length > 0 && (
-                          <div>
-                            <h3 className="font-medium text-sm mb-2">Children</h3>
-                            <ul className="list-disc pl-5 text-muted-foreground">
-                              {selectedMember.children.map((child) => (
-                                <li key={child.id}>
-                                  {child.name}{" "}
-                                  <span className="text-xs opacity-70">
-                                    ({child.relationship_type || "Child"})
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {selectedMember.parents && selectedMember.parents.length > 0 && (
-                          <div>
-                            <h3 className="font-medium text-sm mb-2">Parents</h3>
-                            <ul className="list-disc pl-5 text-muted-foreground">
-                              {selectedMember.parents.map((parent) => (
-                                <li key={parent.id}>
-                                  {parent.name}{" "}
-                                  <span className="text-xs opacity-70">
-                                    ({parent.relationship_type || "Parent"})
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {selectedMember.siblings && selectedMember.siblings.length > 0 && (
-                          <div>
-                            <h3 className="font-medium text-sm mb-2">Siblings</h3>
-                            <ul className="list-disc pl-5 text-muted-foreground">
-                              {selectedMember.siblings.map((sibling) => (
-                                <li key={sibling.id}>
-                                  {sibling.name}{" "}
-                                  <span className="text-xs opacity-70">
-                                    ({sibling.relationship_type || "Sibling"})
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {selectedMember.extended && selectedMember.extended.length > 0 && (
-                          <div>
-                            <h3 className="font-medium text-sm mb-2">Extended Family</h3>
-                            <ul className="list-disc pl-5 text-muted-foreground">
-                              {selectedMember.extended.map((relative) => (
-                                <li key={relative.id}>
-                                  {relative.name}{" "}
-                                  <span className="text-xs opacity-70">
-                                    ({relative.relationship_type || "Relative"})
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                      <div className="space-y-3">
+                        {[
+                          "spouses",
+                          "children",
+                          "parents",
+                          "siblings",
+                          "extended",
+                        ].map(
+                          (group) =>
+                            selectedMember[group]?.length > 0 && (
+                              <div key={group}>
+                                <h3 className="font-medium text-sm capitalize mb-1">
+                                  {group}
+                                </h3>
+                                <ul className="list-disc pl-5 text-muted-foreground">
+                                  {selectedMember[group].map((rel: any) => (
+                                    <li key={rel.id}>
+                                      {rel.name}{" "}
+                                      <span className="text-xs opacity-70">
+                                        ({rel.relationship_type || "Relative"})
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ),
                         )}
                       </div>
                     </TabsContent>

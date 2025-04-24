@@ -13,7 +13,6 @@ type VisualizationType =
 
 interface TreeCanvasProps {
   nodes: any[];
-  links?: any[]; // only used in sociogram
   layout?: string;
   onNodeClick?: (member: FamilyMember) => void;
   onZoomChange?: (scale: number) => void;
@@ -38,7 +37,6 @@ interface RelationshipLineData {
 
 const TreeCanvas = ({
   nodes = [],
-  links = [],
   layout = "hierarchical",
   onNodeClick,
   onZoomChange,
@@ -52,9 +50,10 @@ const TreeCanvas = ({
   const [transform, setTransform] = useState({ x: 200, y: 50, scale: 1.2 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    console.log("📦 Received tree with", nodes.length, "nodes");
+    console.log("📦 Received tree with", nodes.length, "root nodes");
   }, [nodes]);
 
   const { positionedNodes, relationships } = useMemo(() => {
@@ -137,82 +136,68 @@ const TreeCanvas = ({
     }
   }, [resetView]);
 
+  if (loading) {
+    return (
+      <div className="family-tree-canvas flex items-center justify-center p-6">
+        <div className="text-neutral-500 flex items-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span>Loading family tree...</span>
+        </div>
+      </div>
+    );
+  }
+
   const renderRelationships = () => {
-    if (visualizationType === "sociogram" && links && links.length > 0) {
-      return links.map((link, index) => {
-        const source = positionedNodes.find((n) => n.id === link.source);
-        const target = positionedNodes.find((n) => n.id === link.target);
-        if (!source || !target) return null;
-
-        return (
-          <RelationshipLine
-            key={`link-${index}`}
-            x1={source.x}
-            y1={source.y}
-            x2={target.x}
-            y2={target.y}
-            type={link.type || "family"}
-            lineStyle="curved"
-          />
-        );
-      });
-    }
-
-    // Default line rendering
-    return relationships.map((rel, index) => (
-      <RelationshipLine
-        key={`rel-${index}`}
-        x1={rel.source.x}
-        y1={rel.source.y}
-        x2={rel.target.x}
-        y2={rel.target.y}
-        type={rel.relationshipType || "family"}
-        lineStyle="straight"
-      />
-    ));
+    return relationships.map((rel, index) => {
+      const relationshipKey = `rel-${index}-${rel.source.id}-${rel.target.id}-${rel.relationshipType}`;
+      return (
+        <RelationshipLine
+          key={relationshipKey}
+          x1={rel.source.x}
+          y1={rel.source.y}
+          x2={rel.target.x}
+          y2={rel.target.y}
+          type={rel.relationshipType || "family"}
+          lineStyle="straight"
+        />
+      );
+    });
   };
 
   return (
     <div className="family-tree-canvas relative w-full h-full overflow-hidden bg-background">
-      {nodes.length === 0 ? (
-        <div className="flex justify-center items-center h-full text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          Loading family data...
-        </div>
-      ) : (
-        <svg
-          ref={svgRef}
-          className="w-full h-full cursor-grab active:cursor-grabbing"
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
+      <svg
+        ref={svgRef}
+        className="w-full h-full cursor-grab active:cursor-grabbing"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        <g
+          transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
         >
-          <g
-            transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}
-          >
-            {renderRelationships()}
-            {positionedNodes.map((member) => (
-              <TreeNode
-                key={member._uniqueKey || `member-${member.id}`}
-                member={member}
-                x={member.x}
-                y={member.y}
-                size={30}
-                onClick={() => onNodeClick?.(member)}
-                relationInfo={member}
-              />
-            ))}
-          </g>
-        </svg>
-      )}
+          {renderRelationships()}
+          {positionedNodes.map((member) => (
+            <TreeNode
+              key={member._uniqueKey || `member-${member.id}`}
+              member={member}
+              x={member.x}
+              y={member.y}
+              size={30}
+              onClick={() => onNodeClick?.(member)}
+              relationInfo={member}
+            />
+          ))}
+        </g>
+      </svg>
     </div>
   );
 };
 
 export default TreeCanvas;
 
-// 💡 Handles ALL visualization types including sociogram
+// 🌱 Simple generation-based layout + relationship connector
 function positionNodes(
   nodes: any[],
   visualizationType: VisualizationType,
@@ -224,24 +209,12 @@ function positionNodes(
   if (!nodes || nodes.length === 0)
     return { positionedNodes: [], relationships: [] };
 
-  // Special scatter layout for sociogram
-  if (visualizationType === "sociogram") {
-    const positioned: PositionedNode[] = nodes.map((n: any, i: number) => ({
-      ...n,
-      x: n.x ?? Math.cos(i) * 300 + 400,
-      y: n.y ?? Math.sin(i) * 300 + 300,
-      _uniqueKey: `node-${n.id}`,
-    }));
+  let filteredNodes = [...nodes]; // use as-is, already filtered from backend
 
-    return { positionedNodes: positioned, relationships: [] };
-  }
-
-  // Default generation-based layout
-  const withGeneration = nodes.filter((n) => typeof n.generation === "number");
-
+  // Positioning: center by generation, staggered layout
   const generationGroups = new Map<number, PositionedNode[]>();
-  withGeneration.forEach((node) => {
-    const gen = node.generation!;
+  filteredNodes.forEach((node) => {
+    const gen = node.generation ?? 0;
     if (!generationGroups.has(gen)) generationGroups.set(gen, []);
     generationGroups.get(gen)!.push(node);
   });
@@ -249,13 +222,11 @@ function positionNodes(
   const positionedNodes: PositionedNode[] = [];
   generationGroups.forEach((group, gen) => {
     const total = group.length;
-    const y = gen * 200;
     group.forEach((member, i) => {
-      const x = i * 180 - (total * 180) / 2;
       positionedNodes.push({
         ...member,
-        x,
-        y,
+        x: i * 180 - (total * 180) / 2,
+        y: gen * 180,
         _uniqueKey: `node-${member.id}`,
       });
     });
@@ -265,7 +236,8 @@ function positionNodes(
   for (const member of positionedNodes) {
     const source = member;
 
-    (member.children || []).forEach((childRef: any) => {
+    const children = member.children || [];
+    children.forEach((childRef: any) => {
       const target = positionedNodes.find((n) => n.id === childRef.id);
       if (target) {
         relationships.push({
@@ -276,7 +248,8 @@ function positionNodes(
       }
     });
 
-    (member.spouses || []).forEach((spouseRef: any) => {
+    const spouses = member.spouses || [];
+    spouses.forEach((spouseRef: any) => {
       const target = positionedNodes.find((n) => n.id === spouseRef.id);
       if (target) {
         relationships.push({
@@ -287,8 +260,9 @@ function positionNodes(
       }
     });
 
-    (member.siblings || []).forEach((sibRef: any) => {
-      const target = positionedNodes.find((n) => n.id === sibRef.id);
+    const siblings = member.siblings || [];
+    siblings.forEach((siblingRef: any) => {
+      const target = positionedNodes.find((n) => n.id === siblingRef.id);
       if (target) {
         relationships.push({
           source,
