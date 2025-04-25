@@ -347,7 +347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         } else if (visualizationType === "descendant" && rootMemberId) {
           console.log(`Filtering for descendants of member ${rootMemberId}`);
-          filteredStructure = filterForDescendantsForAPI(
+          filteredStructure = filterDescendantsForAPI(
             hierarchicalStructure,
             rootMemberId,
           );
@@ -399,7 +399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (visualizationType === "descendant" && rootMemberId) {
         // For descendant chart, filter to include only the descendants of the specified member
         console.log(`Filtering for descendants of member ${rootMemberId}`);
-        filteredStructure = filterForDescendantsForAPI(
+        filteredStructure = filterDescendantsForAPI(
           hierarchicalStructure,
           rootMemberId,
         );

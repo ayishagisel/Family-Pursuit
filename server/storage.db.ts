@@ -35,6 +35,35 @@ function logOperation(operation: string, entity: string, data?: any): void {
   );
 }
 
+function assignGenerations(members: any[]): any[] {
+  const idToMember = new Map<number, any>();
+  members.forEach((m) => idToMember.set(m.id, m));
+
+  const visited = new Set<number>();
+
+  function dfs(member: any, generation: number) {
+    if (!member || visited.has(member.id)) return;
+    visited.add(member.id);
+
+    member.generation = generation;
+
+    // Recurse on children
+    (member.children || []).forEach((child: any) => {
+      const childMember = idToMember.get(child.id);
+      if (childMember) {
+        dfs(childMember, generation + 1);
+      }
+    });
+  }
+
+  // Start from all roots (people without parents)
+  members
+    .filter((m) => !m.parents || m.parents.length === 0)
+    .forEach((root) => dfs(root, 0));
+
+  return members;
+}
+
 export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
@@ -546,6 +575,45 @@ export class DatabaseStorage implements IStorage {
       const allMembers = await this.getAllFamilyMembers();
       const allRelationships = await this.getAllRelationships();
 
+      // Build ID map for convenience
+      const memberMap = new Map<number, any>();
+      allMembers.forEach((m) =>
+        memberMap.set(m.id, { ...m, children: [], parents: [] }),
+      );
+
+      // Connect relationships
+      for (const rel of allRelationships) {
+        const parent = memberMap.get(rel.from_id);
+        const child = memberMap.get(rel.to_id);
+        if (rel.relationship_type === "parent" && parent && child) {
+          parent.children.push(child);
+          child.parents.push(parent);
+        }
+      }
+
+      // Assign generations
+      function assignGenerations(root: any, gen = 0, visited = new Set()) {
+        if (!root || visited.has(root.id)) return;
+        visited.add(root.id);
+        root.generation = gen;
+
+        for (const child of root.children) {
+          assignGenerations(child, gen + 1, visited);
+        }
+
+        for (const parent of root.parents) {
+          assignGenerations(parent, gen - 1, visited);
+        }
+      }
+
+      // Pick a root to start generation assignment (e.g. first one with no parents)
+      const rootCandidate = [...memberMap.values()].find(
+        (m) => m.parents.length === 0,
+      );
+      if (rootCandidate) {
+        assignGenerations(rootCandidate);
+      }
+
       const membersMap = new Map<number, any>();
       allMembers.forEach((member) => {
         membersMap.set(member.id, {
@@ -682,16 +750,44 @@ export class DatabaseStorage implements IStorage {
     const visited = new Set<number>();
 
     const assignGeneration = (member: any, generation: number) => {
-      if (visited.has(member.id)) return;
-      visited.add(member.id);
+      if (!member || visited.has(member.id)) return;
 
-      member.generation = generation;
-
-      for (const child of member.children || []) {
-        const childObj = membersMap.get(child.id);
-        if (childObj) assignGeneration(childObj, generation + 1);
+      // Avoid overriding a more accurate generation
+      if (
+        member.generation !== undefined &&
+        Math.abs(member.generation - generation) < 2
+      ) {
+        return;
       }
 
+      member.generation = generation;
+      visited.add(member.id);
+
+      // Recurse down to children
+      for (const child of member.children || []) {
+        const childObj = membersMap.get(child.id);
+        if (
+          childObj &&
+          (childObj.generation === undefined ||
+            childObj.generation > generation + 1)
+        ) {
+          assignGeneration(childObj, generation + 1);
+        }
+      }
+
+      // Recurse up to parents
+      for (const parent of member.parents || []) {
+        const parentObj = membersMap.get(parent.id);
+        if (
+          parentObj &&
+          (parentObj.generation === undefined ||
+            parentObj.generation < generation - 1)
+        ) {
+          assignGeneration(parentObj, generation - 1);
+        }
+      }
+
+      // Recurse sideways to spouses
       for (const spouse of member.spouses || []) {
         const spouseObj = membersMap.get(spouse.id);
         if (spouseObj && spouseObj.generation === undefined) {
@@ -699,6 +795,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
+      // Recurse sideways to siblings
       for (const sibling of member.siblings || []) {
         const siblingObj = membersMap.get(sibling.id);
         if (siblingObj && siblingObj.generation === undefined) {
@@ -707,6 +804,7 @@ export class DatabaseStorage implements IStorage {
       }
     };
 
+    // Start from all members with no known parents
     const rootMembers = Array.from(membersMap.values()).filter(
       (m) => !m.parents || m.parents.length === 0,
     );
@@ -715,9 +813,7 @@ export class DatabaseStorage implements IStorage {
       assignGeneration(root, 0);
     }
 
-    console.log(
-      `📏 Assigned generation levels to ${visited.size} family members`,
-    );
+    console.log(`📏 Reassigned generations to ${visited.size} members`);
   }
 
   /**

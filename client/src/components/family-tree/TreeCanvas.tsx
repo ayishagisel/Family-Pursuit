@@ -36,6 +36,37 @@ interface RelationshipLineData {
   relationshipType: string;
 }
 
+function calculateCenteredTransform(
+  nodes: PositionedNode[],
+  svgWidth = 800,
+  svgHeight = 600,
+  scale = 1.0,
+) {
+  if (nodes.length === 0) {
+    return { x: 0, y: 0, scale };
+  }
+
+  const minX = Math.min(...nodes.map((n) => n.x));
+  const maxX = Math.max(...nodes.map((n) => n.x));
+  const minY = Math.min(...nodes.map((n) => n.y));
+  const maxY = Math.max(...nodes.map((n) => n.y));
+
+  const treeWidth = maxX - minX;
+  const treeHeight = maxY - minY;
+
+  const centerX = minX + treeWidth / 2;
+  const centerY = minY + treeHeight / 2;
+
+  const canvasCenterX = svgWidth / 2;
+  const canvasCenterY = svgHeight / 2;
+
+  return {
+    x: canvasCenterX - centerX * scale,
+    y: canvasCenterY - centerY * scale,
+    scale,
+  };
+}
+
 const TreeCanvas = ({
   nodes = [],
   links = [],
@@ -49,17 +80,43 @@ const TreeCanvas = ({
   selectedPersonId,
 }: TreeCanvasProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [transform, setTransform] = useState({ x: 200, y: 50, scale: 1.2 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1.0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    console.log("📦 Received tree with", nodes.length, "nodes");
-  }, [nodes]);
 
   const { positionedNodes, relationships } = useMemo(() => {
     return positionNodes(nodes, visualizationType, selectedPersonId);
   }, [nodes, visualizationType, selectedPersonId]);
+
+  useEffect(() => {
+    if (svgRef.current && positionedNodes.length > 0) {
+      const bounds = svgRef.current.getBoundingClientRect();
+      const centered = calculateCenteredTransform(
+        positionedNodes,
+        bounds.width,
+        bounds.height,
+        1.0,
+      );
+      setTransform(centered);
+    }
+  }, [positionedNodes]);
+
+  useEffect(() => {
+    if (resetView && svgRef.current && positionedNodes.length > 0) {
+      const bounds = svgRef.current.getBoundingClientRect();
+      const centered = calculateCenteredTransform(
+        positionedNodes,
+        bounds.width,
+        bounds.height,
+        1.0,
+      );
+      setTransform(centered);
+    }
+  }, [resetView, positionedNodes]);
+
+  useEffect(() => {
+    if (onZoomChange) onZoomChange(transform.scale);
+  }, [transform.scale, onZoomChange]);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -114,10 +171,6 @@ const TreeCanvas = ({
   }, []);
 
   useEffect(() => {
-    if (onZoomChange) onZoomChange(transform.scale);
-  }, [transform.scale, onZoomChange]);
-
-  useEffect(() => {
     if (zoomIn) {
       const newScale = Math.min(2, transform.scale + 0.2);
       setTransform((prev) => ({ ...prev, scale: newScale }));
@@ -130,12 +183,6 @@ const TreeCanvas = ({
       setTransform((prev) => ({ ...prev, scale: newScale }));
     }
   }, [zoomOut]);
-
-  useEffect(() => {
-    if (resetView) {
-      setTransform({ x: 200, y: 50, scale: 1.2 });
-    }
-  }, [resetView]);
 
   const renderRelationships = () => {
     if (visualizationType === "sociogram" && links && links.length > 0) {
@@ -158,7 +205,6 @@ const TreeCanvas = ({
       });
     }
 
-    // Default line rendering
     return relationships.map((rel, index) => (
       <RelationshipLine
         key={`rel-${index}`}
@@ -221,24 +267,34 @@ function positionNodes(
   positionedNodes: PositionedNode[];
   relationships: RelationshipLineData[];
 } {
+  console.log("🧬 Generation breakdown:");
+  nodes.forEach((node) => {
+    console.log(`${node.name}: Generation ${node.generation}`);
+  });
   if (!nodes || nodes.length === 0)
     return { positionedNodes: [], relationships: [] };
 
-  // Special scatter layout for sociogram
+  if (visualizationType === "flat") {
+    const positioned: PositionedNode[] = nodes.map((n: any, i: number) => ({
+      ...n,
+      x: (i % 5) * 180 - 360,
+      y: Math.floor(i / 5) * 220,
+      _uniqueKey: `flat-${n.id}`,
+    }));
+    return { positionedNodes: positioned, relationships: [] };
+  }
+
   if (visualizationType === "sociogram") {
     const positioned: PositionedNode[] = nodes.map((n: any, i: number) => ({
       ...n,
       x: n.x ?? Math.cos(i) * 300 + 400,
       y: n.y ?? Math.sin(i) * 300 + 300,
-      _uniqueKey: `node-${n.id}`,
+      _uniqueKey: `sociogram-${n.id}`,
     }));
-
     return { positionedNodes: positioned, relationships: [] };
   }
 
-  // Default generation-based layout
   const withGeneration = nodes.filter((n) => typeof n.generation === "number");
-
   const generationGroups = new Map<number, PositionedNode[]>();
   withGeneration.forEach((node) => {
     const gen = node.generation!;
@@ -264,7 +320,6 @@ function positionNodes(
   const relationships: RelationshipLineData[] = [];
   for (const member of positionedNodes) {
     const source = member;
-
     (member.children || []).forEach((childRef: any) => {
       const target = positionedNodes.find((n) => n.id === childRef.id);
       if (target) {
@@ -275,7 +330,6 @@ function positionNodes(
         });
       }
     });
-
     (member.spouses || []).forEach((spouseRef: any) => {
       const target = positionedNodes.find((n) => n.id === spouseRef.id);
       if (target) {
@@ -286,7 +340,6 @@ function positionNodes(
         });
       }
     });
-
     (member.siblings || []).forEach((sibRef: any) => {
       const target = positionedNodes.find((n) => n.id === sibRef.id);
       if (target) {
