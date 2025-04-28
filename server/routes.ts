@@ -341,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (visualizationType === "ancestor" && rootMemberId) {
           console.log(`Filtering for ancestors of member ${rootMemberId}`);
-          filteredStructure = filterForAncestorsForAPI(
+          filteredStructure = filterAncestorsForAPI(
             hierarchicalStructure,
             rootMemberId,
           );
